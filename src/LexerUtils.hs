@@ -15,8 +15,8 @@ asciiTbl li = map chr li
 binaryDigit :: String
 binaryDigit = asciiTbl [48..49]
 
-binaryNumPrefixRegex :: Regex
-binaryNumPrefixRegex = oneOf "0" <.> oneOf "bB"
+binaryNumPrefixRx :: Regex
+binaryNumPrefixRx = oneOf "0" <.> oneOf "bB"
 
 nonzeroDecimalDigit :: String
 nonzeroDecimalDigit = asciiTbl [49..57]
@@ -27,58 +27,122 @@ decimalDigit = asciiTbl [48..57]
 hexDigit :: String
 hexDigit = (++) decimalDigit $ asciiTbl ([97..102] ++ [65..70])
 
-hexNumPrefixRegex :: Regex
-hexNumPrefixRegex = oneOf "0" <.> oneOf "xX"
+hexNumPrefixRx :: Regex
+hexNumPrefixRx = oneOf "0" <.> oneOf "xX"
 
 octalDigit :: String
 octalDigit = asciiTbl [48..55]
 
-octalNumPrefixRegex :: Regex
-octalNumPrefixRegex = oneOf "0" <.> oneOf "oO"
+octalNumPrefixRx :: Regex
+octalNumPrefixRx = oneOf "0" <.> oneOf "oO"
 
 -- integer regexes
-binaryNumRegex :: Regex
-binaryNumRegex = (<.>) binaryNumPrefixRegex $ plus $ oneOf binaryDigit
+binaryNumRx :: Regex
+binaryNumRx = (<.>) binaryNumPrefixRx $ plus $ oneOf binaryDigit
 
-decimalNumRegex :: Regex
-decimalNumRegex = ((oneOf nonzeroDecimalDigit <.> star (oneOf decimalDigit))
+decimalNumRx :: Regex
+decimalNumRx = ((oneOf nonzeroDecimalDigit <.> star (oneOf decimalDigit))
                    <|> (plus (seqOf "0")))
 
-hexNumRegex :: Regex
-hexNumRegex = (<.>) hexNumPrefixRegex $ plus $ oneOf hexDigit
+hexNumRx :: Regex
+hexNumRx = (<.>) hexNumPrefixRx $ plus $ oneOf hexDigit
 
-octalNumRegex :: Regex
-octalNumRegex = (<.>) octalNumPrefixRegex $ plus $ oneOf octalDigit
+octalNumRx :: Regex
+octalNumRx = (<.>) octalNumPrefixRx $ plus $ oneOf octalDigit
 
 -- useful helpers for floating point literal regexes
-decimalDigitRegex :: Regex
-decimalDigitRegex = plus $ oneOf decimalDigit
+decimalDigitRx :: Regex
+decimalDigitRx = plus $ oneOf decimalDigit
 
-expPrefixRegex :: Regex
-expPrefixRegex = oneOf "eE" <.> (op $ oneOf "+-")
+expPrefixRx :: Regex
+expPrefixRx = oneOf "eE" <.> (op $ oneOf "+-")
 
-expRegex :: Regex
-expRegex = expPrefixRegex <.> decimalDigitRegex
+expRx :: Regex
+expRx = expPrefixRx <.> decimalDigitRx
 
-fractionalRegex :: Regex
-fractionalRegex = oneOf "." <.> decimalDigitRegex
+fractionalRx :: Regex
+fractionalRx = oneOf "." <.> decimalDigitRx
 
-pointfloatRegex :: Regex
-pointfloatRegex = ((op decimalDigitRegex) <.> fractionalRegex <|>
-                   (decimalDigitRegex <.> oneOf "."))
+pointfloatRx :: Regex
+pointfloatRx = ((op decimalDigitRx) <.> fractionalRx <|>
+                   (decimalDigitRx <.> oneOf "."))
 
 -- floating point literal regexes
-floatNumRegex :: Regex
-floatNumRegex = pointfloatRegex <|> expRegex
+floatNumRx :: Regex
+floatNumRx = pointfloatRx <|> expRx
 
 -- imaginary number literal regexes
-complexNumRegex :: Regex
-complexNumRegex = (floatNumRegex <|> decimalDigitRegex) <.> oneOf "jJ"
+complexNumRx :: Regex
+complexNumRx = (floatNumRx <|> decimalDigitRx) <.> oneOf "jJ"
 
 -- comment regexes
-commentRegex :: Regex
-commentRegex = oneOf "#"
+commentRx :: Regex
+commentRx = oneOf "#"
 
 -- operator regexes
-operatorRegex :: Regex
-operatorRegex = "+-*/%&|^~<>"
+operatorRx :: Regex
+operatorRx = oneOf "+-*/%&|^~<>"
+            <|> seqOf "**"
+            <|> seqOf "//"
+            <|> seqOf "<<"
+            <|> seqOf ">>"
+            <|> seqOf "<="
+            <|> seqOf ">="
+            <|> seqOf "=="
+            <|> seqOf "!="
+
+-- delimiter regex
+delimiterRx :: Regex
+delimiterRx = oneOf "()[]{},:.;@="
+             <|> seqOf "+="
+             <|> seqOf "-="
+             <|> seqOf "*="
+             <|> seqOf "/="
+             <|> seqOf "//="
+             <|> seqOf "%="
+             <|> seqOf "&="
+             <|> seqOf "|="
+             <|> seqOf "^="
+             <|> seqOf ">>="
+             <|> seqOf "<<="
+             <|> seqOf "**="
+
+-- punctuation regex
+punctRx :: Regex
+punctRx = operatorRx <|> delimiterRx
+
+-- python keywords regex
+kwRx :: Regex
+kwRx = seqOf "False"
+   <|> seqOf "None"
+   <|> seqOf "True"
+   <|> seqOf "and"
+   <|> seqOf "as"
+   <|> seqOf "assert"
+   <|> seqOf "break"
+   <|> seqOf "class"
+   <|> seqOf "continue"
+   <|> seqOf "def"
+   <|> seqOf "del"
+   <|> seqOf "elif"
+   <|> seqOf "else"
+   <|> seqOf "except"
+   <|> seqOf "finally"
+   <|> seqOf "for"
+   <|> seqOf "from"
+   <|> seqOf "global"
+   <|> seqOf "if"
+   <|> seqOf "import"
+   <|> seqOf "in"
+   <|> seqOf "is"
+   <|> seqOf "lambda"
+   <|> seqOf "nonlocal"
+   <|> seqOf "not"
+   <|> seqOf "or"
+   <|> seqOf "pass"
+   <|> seqOf "raise"
+   <|> seqOf "return"
+   <|> seqOf "try"
+   <|> seqOf "while"
+   <|> seqOf "with"
+   <|> seqOf "yield"
