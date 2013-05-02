@@ -1,0 +1,13 @@
+name:             pyle
+version:          0.1
+build-type:       Simple
+cabal-version:    >= 1.2
+
+library
+  hs-source-dirs: src
+  build-depends:  base == 4.3.*, HUnit
+
+executable        pyle
+  main-is:        Main.hs
+  hs-source-dirs: src
+  ghc-options:    -Wall
