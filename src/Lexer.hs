@@ -66,3 +66,10 @@ dispTkn (HexLit x)        = concat ["(LIT ", x, ")"]
 dispTkn (OctLit x)        = concat ["(LIT ", x, ")"]
 
 
+
+-- LEXER CONTROL LOGIC
+
+-- outputs a set of tokens, each on its own line
+emit :: [Tkn] -> IO ()
+emit tkns = mapM_ print tkns
+
