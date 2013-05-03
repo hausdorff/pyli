@@ -2,11 +2,6 @@
  - Contains mostly regular expressions for lexing Python. Follows extremely
  - closely with the Python lexical spec:
  - http://docs.python.org/3/reference/lexical_analysis.html
- -
- - LIST OF THINGS WE DO NOT SUPPORT THAT ARE PROBABLY BAD:
- - * unicode (I know, I know)
- - * bytestrings
- - * unicode bytestrings!
  -}
 module LexerUtils where
 
