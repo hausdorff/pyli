@@ -31,17 +31,17 @@ data Tkn =
            | LineCont
            -- "Helper" tokens, mostly to help us process literals
            | StrLit String
-           | StrIntLit String String -- intermediate string for multiline strings
+           | StrIntLit String String  -- (multiline strings)
            | RStrLit String
-           | RStrIntLit String String-- intermediate raw string for linecont
+           | RStrIntLit String String -- (multiline r-strings)
            | CmplxLit String
            | BinLit String
            | HexLit String
            | OctLit String
            deriving (Eq)
-instance Show Tkn where show = dispTkn
+instance Show Tkn where show = dispTkn  -- tells how to display tokens
 
--- For displaying the tokens
+-- turns tokens into strings
 dispTkn :: Tkn -> String
 -- "Core" tokens
 dispTkn (Newline)   = "(NEWLINE)"
@@ -57,7 +57,7 @@ dispTkn (Comment)   = "(COMMENT)"
 dispTkn (LineCont)  = "(LINECONT)"
 -- "Helper" tokens
 dispTkn (StrLit x)        = concat ["(LIT \"", x, "\")"]
-dispTkn (StrIntLit x _) = concat ["(STRING \"", x, "\")"]
+dispTkn (StrIntLit x _)   = concat ["(STRING \"", x, "\")"]
 dispTkn (RStrLit x)       = concat ["(rLIT \"", x, "\")"]
 dispTkn (RStrIntLit x _)  = concat ["(rLITint \"", (escapeBackslash x), "\")"]
 dispTkn (CmplxLit x)      = concat ["(LIT ", x, ")"]
@@ -67,9 +67,9 @@ dispTkn (OctLit x)        = concat ["(LIT ", x, ")"]
 
 
 
--- LEXER CONTROL LOGIC
+-- LEXER API
 
--- outputs a set of tokens, each on its own line
+-- OUTPUT. Takes a list of tokens, prints each on its own line
 emit :: [Tkn] -> IO ()
 emit tkns = mapM_ print tkns
 
