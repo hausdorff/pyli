@@ -73,3 +73,50 @@ dispTkn (OctLit x)        = concat ["(LIT ", x, ")"]
 emit :: [Tkn] -> IO ()
 emit tkns = mapM_ print tkns
 
+-- INPUT. Takes a string and lexes it
+lex :: String -> [Tkn]
+lex input = joinStrLits (convertRStrLits $ lexlines [0] [] $ lines input) []
+
+
+
+-- LEXER CONTROL LOGIC
+
+-- [IndentStack] -> [ParenthesisStack] -> [StringToLex] -> [Tokens]
+lexlines :: [Int] -> [String] -> [String] -> [Tkn]
+lexlines [] _ _ =
+  -- the indent stack will always have at least one element inside, sometimes
+  -- a 0; if it's not there, we error
+  error "indent stack can't be empty"
+lexlines istack pstack (s:ss) =
+  concat [tkns, nlTkn, lexlines newistack newpstack ss]
+  where
+    (tkns, newistack, pstack') = lexLine istack pstack s
+    nlTkn                      = nlTknUpdt pstack' tkns
+    newpstack                  = pstackUpdt tkns pstack'
+lexlines istack pstack []
+  -- trailing parenthesis results in error
+  | "\\" `elem` pstack = error "trailing backslash"
+  | istack == [0]      = [Endmarker]
+  | otherwise          = (fst $ dedentStack istack 0) ++ [Endmarker]
+
+
+-- HELPER FUNCTIONS
+
+-- push e onto stack `st` if it is not in the stack already
+pushIfUnique :: Eq a => a -> [a] -> [a]
+pushIfUnique e st = case (e `elem` st) of
+  True  -> st
+  False -> e:st
+
+-- if last token is a multiline string, add open to pstack to track it. ipstack
+-- is the intermediate pstack
+pstackUpdt :: [Tkn] -> [String] -> [String]
+pstackUpdt [] pstack   = pstack
+pstackUpdt tkns pstack = case last tkns of
+  StrIntLit _ st  -> pushIfUnique st pstack
+  RStrIntLit _ st -> pushIfUnique ('r':st) pstack
+  _               -> pstack
+
+-- adds newline token to stack if we encounter a non-escaped newline
+nlTknUpdt :: [String] -> [Tkn] -> [Tkn]
+nlTknUpdt ["\\"] _    = []
