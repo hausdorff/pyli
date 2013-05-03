@@ -119,4 +119,11 @@ pstackUpdt tkns pstack = case last tkns of
 
 -- adds newline token to stack if we encounter a non-escaped newline
 nlTknUpdt :: [String] -> [Tkn] -> [Tkn]
-nlTknUpdt ["\\"] _    = []
+nlTknUpdt _ []        = []  -- no tokens, then no nl
+nlTknUpdt (_:_) (_:_) = []  -- nested parentheses, then new nl
+nlTknUpdt ["\\"] _    = []  -- escaped nl
+nlTknUpdt [] (x:xs)   = case last (x:xs) of
+  StrIntLit _ _  -> []
+  RStrIntLit _ _ -> []
+  _              -> [Newline]  -- any token but long string is a nl
+
