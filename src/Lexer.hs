@@ -75,7 +75,7 @@ emit tkns = mapM_ print tkns
 
 -- INPUT. Takes a string and lexes it
 lex :: String -> [Tkn]
-lex input = joinStrLits (mapStrLits $ lexlines [0] [] $ lines input) []
+lex input = concatStrLits (mapStrLits $ lexlines [0] [] $ lines input) []
 
 
 
@@ -482,3 +482,36 @@ mapEscdHex (a:xs) = a:(mapEscdHex xs)
 hex :: [Int]
 hex = ([48..57] ++ [97..102] ++ [65..70])
 
+-- concatenates contiguous string literals
+concatStrLits :: [Tkn] -> [Tkn] -> [Tkn]
+concatStrLits (tkn:ts) remainder = case tkn of
+    StrIntLit _ _ -> concatStrLits ts (tkn:remainder)
+    StrLit _      -> catStrLit
+    _             -> tkn : concatStrLits ts remainder
+    where catStrLit | null remainder = (escTkn tkn) : concatStrLits ts []
+                    | otherwise      = (escTkn $ StrLit $ showTkns (tkn:remainder)) : (concatStrLits ts [])
+concatStrLits [] []    = []
+concatStrLits [] (_:_) = [Error "unable to join string literals"]
+
+-- a toString function for tokens
+showTkns :: [Tkn] -> String
+showTkns [] = ""
+showTkns ts = concat $ reverse $ map tknToString ts
+
+--
+tknToString :: Tkn -> String
+tknToString tkn = case tkn of
+  StrLit s             -> s
+  StrIntLit s "\'\'\'" -> concat [s, "\\n"]
+  StrIntLit s "\"\"\"" -> concat [s, "\\n"]
+  StrIntLit s ['\'']   -> s
+  StrIntLit s ['"']    -> s
+
+
+  _                    -> []
+
+escTkn :: Tkn -> Tkn
+escTkn tkn = case tkn of
+  StrLit s      -> StrLit $ escbs $ mapEscdHex $ mapEscdOct s
+  StrIntLit s _ -> StrIntLit (escbs $ mapEscdHex $ mapEscdOct s) ""
+  _             -> tkn
