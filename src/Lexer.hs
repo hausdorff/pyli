@@ -59,7 +59,7 @@ dispTkn (LineCont)       = "(LINECONT)"
 dispTkn (StrLit x)       = concat ["(LIT \"", x, "\")"]
 dispTkn (StrIntLit x _)  = concat ["(STRING \"", x, "\")"]
 dispTkn (RStrLit x)      = concat ["(rLIT \"", x, "\")"]
-dispTkn (RStrIntLit x _) = concat ["(rLITint \"", (escapeBackslash x), "\")"]
+dispTkn (RStrIntLit x _) = concat ["(rLITint \"", (escbs x), "\")"]
 dispTkn (CmplxLit x)     = concat ["(LIT ", x, ")"]
 dispTkn (BinLit x)       = concat ["(LIT ", x, ")"]
 dispTkn (HexLit x)       = concat ["(LIT ", x, ")"]
@@ -75,7 +75,7 @@ emit tkns = mapM_ print tkns
 
 -- INPUT. Takes a string and lexes it
 lex :: String -> [Tkn]
-lex input = joinStrLits (convertRStrLits $ lexlines [0] [] $ lines input) []
+lex input = joinStrLits (mapStrLits $ lexlines [0] [] $ lines input) []
 
 
 
@@ -98,27 +98,27 @@ lexlines istack pstack []
   -- trailing parenthesis results in error
   | "\\" `elem` pstack = [Error "trailing backslash not allowed in file"]
   | istack == [0]      = [Endmarker]
-  | otherwise          = (fst $ dedentStack istack 0) ++ [Endmarker]
+  | otherwise          = (fst $ dedent istack 0) ++ [Endmarker]
 
 
 -- lexes one line
 -- indent stack -> parens stack -> a single line -> tokens ->
 --    (tokens, new indent stack, new parens stack)
 lexln :: [Int] -> [String] -> String -> ([Tkn], [Int], [String])
-lexln istack [] s = (concat [itkns, tkns'], istack', pstack')
+lexln istack [] ln = (concat [itkns, tkns'], istack', pstack')
   -- lex indents
   where
-    noWs             = dropWhile isSpace s
-    curridts         = length $ takeWhile isSpace s
-    (tkns, pstack)   = tknizeString noWs []
+    noWs             = dropSpace ln
+    curridts         = length $ takeWhile isSpace ln
+    (tkns, pstack)   = tokenize noWs []
     (tkns', pstack') = stackUpdtWIndents tkns pstack
     -- INDENT tokens should not be emitted if line is empty
     (itkns, istack') | null tkns' = ([], istack)
-                     | otherwise  = updateStack istack curridts
-lexln istack pstack s  = (tkns', istack, pstack'')
+                     | otherwise  = tknStackUpdt istack curridts
+lexln istack pstack ln  = (tkns', istack, pstack'')
   -- don't lex indents
   where
-    (tkns, pstack')   = tknizeOrLexCont pstack s
+    (tkns, pstack')   = tknizeOrLexCont pstack ln
     (tkns', pstack'') = stackUpdtWOIndents tkns pstack'
 
 -- if parenthesis stack is empty, there is no line continuation.
@@ -128,10 +128,10 @@ lexln istack pstack s  = (tkns', istack, pstack'')
 stackUpdtWOIndents :: [Tkn] -> [String] -> ([Tkn], [String])
 stackUpdtWOIndents tkns pstack = case (LineCont `elemIndex` tkns) of
   Just x  -> isEol x
-  Nothing -> (tkns' False False, pstack' False) --(False, Comment)
+  Nothing -> (tkns' False False, pstack' False)
   where
-    isEol n | n == ((length tkns) - 1) = (tkns' True False, pstack' True) --(True, Comment)
-            | otherwise                = (tkns' False True, pstack' False) --(False, Error "Backslash in the wrong place")
+    isEol n | n == ((length tkns) - 1) = (tkns' True False, pstack' True)
+            | otherwise                = (tkns' False True, pstack' False)
     lcInPstack = "\\" `elem` pstack
     tkns' lcAtEol err | lcAtEol && lcInPstack ||
                         null pstack = delete LineCont tkns
@@ -158,12 +158,58 @@ stackUpdtWIndents tkns pstack = case (LineCont `elemIndex` tkns) of
 -- either tokenizes input string outright, or "continues" lexing b/c the
 -- previous line was a multiline string
 tknizeOrLexCont :: [String] -> String -> ([Tkn], [String])
-tknizeOrLexCont pstack s
-  | head pstack == "\\"           = tknizeString s (tail pstack)
-  | head pstack `elem` strDelim   = lexcont s pstack
-  | otherwise                     = tknizeString s pstack
+tknizeOrLexCont pstack ln
+  | head pstack == "\\"           = tokenize ln (tail pstack)
+  | head pstack `elem` strDelim   = lexcont ln pstack
+  | otherwise                     = tokenize ln pstack
   where strDelim = ["\'", "'''", "\"", "\"\"\"",
                     "r'", "r'''", "r\"", "r\"\"\""]
+
+-- "continues" lexing string after a line continuation
+lexcont :: String -> [String] -> ([Tkn], [String])
+lexcont _ []        = error "to lex after line cont, we require a paren stack"
+lexcont ln (par:ps) = (tkns, pstack')
+  where
+  (rx, postfix) = buildStrRx par
+  (tkn, leftoverStr) = rxTknMap' rx ln postfix
+  (leftoverTkns, pstack) = tokenize leftoverStr ps
+  (tkns, pstack') = case tkn of
+    StrLit _       -> (tkn : leftoverTkns, pstack)
+    StrLit _      -> (tkn : leftoverTkns, pstack)
+    StrIntLit _ _  -> ([tkn], par:ps)
+    RStrIntLit _ _ -> ([tkn], par:ps)
+    Error x        -> ([Error x], ps)
+    _              -> ([Error "String Lexing error"], par:ps)
+
+
+
+isShortstr :: String -> Bool
+isShortstr qt | qt == "\""  = True
+              | qt == "'"   = True
+              | qt == "r\"" = True
+              | qt == "r'"  = True
+              | otherwise   = False
+
+isRstr :: String -> Bool
+isRstr qt | qt == "r\""     = True
+          | qt == "r'"      = True
+          | qt == "r'''"    = True
+          | qt == "r\"\"\"" = True
+          | otherwise       = False
+
+-- builds regex based on whether it's a short or long string (or r-string)
+buildStrRx :: String -> ((Regex, Tkn), [Char])
+buildStrRx par = case (isShortstr par, isRstr par) of
+    -- indexing b/c `shortstringcont` takes a character as arg
+    (True, False)  -> ((shortstringcont (par !! 0), StrLit ""), par)
+    (False, False) -> ((longstringcont par, StrLit ""), par)
+    -- exclude 'r' character from strings
+    (True, True)   -> ((shortstringcont (par !! 1), RStrLit ""), (tail par))
+    (False, True)  -> ((longstringcont (tail par), RStrLit ""), (tail par))
+    _              -> error "lexcont got called without a quote on the stack!"
+
+
+
 
 
 
@@ -194,4 +240,74 @@ nlTknUpdt [] (x:xs)   = case last (x:xs) of
   StrIntLit _ _  -> []
   RStrIntLit _ _ -> []
   _              -> [Newline]  -- any token but long string is a nl
+
+
+
+
+
+
+
+-- manages logic of popping pstack. skips over line continuations
+parenpop :: [String] -> [String]
+parenpop [] = []
+parenpop (par:ps) | closesExp = concat [escs, ps']
+                | otherwise = []
+                  where (escs, (p':ps')) = span (\x -> x == "\\") (par:ps)
+                        closesExp = p' == "}" || p' == "]" || p' == ")"
+
+
+-- string -> paren stack -> (tokes list, new paren stack)
+tokenize :: String -> [String] -> ([Tkn], [String])
+tokenize s (par:ps) = case matchLongestTkn s' of
+  Nothing -> case s' of
+    "" -> ([], (par:ps))
+    _  -> ([Error $ concat ["failed to tokenize the complete string. remainder: ", s']], [])
+  (Just (tkn, s'')) -> case tkn of
+    Punct "}" -> (tkn : tkns, pstack)
+    Punct "]" -> (tkn : tkns, pstack)
+    Punct ")" -> (tkn : tkns, pstack)
+    _         -> lexOnTkn tkn s'' (par:ps)
+    where (tkns, pstack) = tokenize s'' (parenpop (par:ps))
+  where s' = dropSpace s
+tokenize s [] = case matchLongestTkn s' of
+  Nothing -> case s' of
+    "" -> ([], [])
+    _  -> ([Error $ concat ["failed to tokenize the complete string. remainder: ", s']], [])
+  (Just (tkn, s'')) -> lexOnTkn tkn s'' []
+  where s' = dropSpace s
+
+-- provides context-dependent lexing based on given token
+lexOnTkn :: Tkn -> String -> [String] -> ([Tkn], [String])
+lexOnTkn tkn s pstack = case tkn of
+  -- add new paren
+  Punct "{"        -> stackUpdt "}"
+  Punct "["        -> stackUpdt "]"
+  Punct "("        -> stackUpdt ")"
+  -- add new string
+  StrIntLit _ "'"  -> stackUpdtBsEscd
+  StrIntLit _ "\"" -> stackUpdtBsEscd
+  -- check if \ appears at EOL
+  LineCont         -> stackUpdtLineCont
+  Comment          -> ([], pstack)
+  _                -> stackUpdt'
+  where stackUpdt punct = (tkn : tkns, pstack')
+          where (tkns, pstack') = tokenize s (punct : pstack)
+        stackUpdt'      = (tkn : tkns, pstack')
+          where (tkns, pstack') = tokenize s pstack
+        stackUpdtLineCont | not $ null s = ((Error "unescaped backslash in string") : tkn : tkns, pstack)
+                          | null pstack  = (tkn : tkns, pstack')
+                          | otherwise    = (tkns, pstack')
+                            where (tkns, pstack') = tokenize s pstack
+        stackUpdtBsEscd | not $ null s = ((Error "unescaped backslash in string") : tkn : tkns, pstack')
+                        | otherwise    = (tkn : tkns, pstack')
+                          where (tkns, pstack') = tokenize s pstack
+
+matchLongestTkn :: String -> Maybe (Tkn, String)
+matchLongestTkn s = match
+  where
+    intr  = catMaybes $ map (\x -> rxTknMap x s []) tknRxs
+    maxln = maximum $ map (\(_, x, _) -> x) intr
+    match = case (filter (\(_, x, _) -> x == maxln) intr) of
+      []    -> Nothing
+      xs -> Just ((\(tkn, _, s) -> (tkn,s)) (head xs))
 
