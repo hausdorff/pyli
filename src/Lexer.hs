@@ -294,20 +294,77 @@ lexOnTkn tkn s pstack = case tkn of
           where (tkns, pstack') = tokenize s (punct : pstack)
         stackUpdt'      = (tkn : tkns, pstack')
           where (tkns, pstack') = tokenize s pstack
-        stackUpdtLineCont | not $ null s = ((Error "unescaped backslash in string") : tkn : tkns, pstack)
+        stackUpdtLineCont | not $ null s = ((Error "unescaped backslash in string") :
+                                            tkn : tkns, pstack)
                           | null pstack  = (tkn : tkns, pstack')
                           | otherwise    = (tkns, pstack')
                             where (tkns, pstack') = tokenize s pstack
-        stackUpdtBsEscd | not $ null s = ((Error "unescaped backslash in string") : tkn : tkns, pstack')
+        stackUpdtBsEscd | not $ null s = ((Error "unescaped backslash in string") :
+                                          tkn : tkns, pstack')
                         | otherwise    = (tkn : tkns, pstack')
                           where (tkns, pstack') = tokenize s pstack
 
 matchLongestTkn :: String -> Maybe (Tkn, String)
-matchLongestTkn s = match
+matchLongestTkn s = result
   where
-    intr  = catMaybes $ map (\x -> rxTknMap x s []) tknRxs
-    maxln = maximum $ map (\(_, x, _) -> x) intr
-    match = case (filter (\(_, x, _) -> x == maxln) intr) of
+    intr   = catMaybes $ map (\x -> rxTknMap x s []) tknRxs
+    maxln  = maximum $ map (\(_, x, _) -> x) intr
+    result = case (filter (\(_, x, _) -> x == maxln) intr) of
       []    -> Nothing
-      xs -> Just ((\(tkn, _, s) -> (tkn,s)) (head xs))
+      xs    -> Just ((\(tkn, _, str) -> (tkn, str)) (head xs))
+
+rxTknMap' :: (Regex, Tkn) -> String -> String -> (Tkn, String)
+rxTknMap' (rx, tkn) s qt = case match rx s of
+  Just (result, _, rest) -> (tkn', rest) where
+    tkn' = case tkn of
+      Id _       -> Id result
+      Keyword _  -> Keyword result
+      Literal _  -> Literal result
+      Punct _    -> Punct result
+      StrLit _   -> fmt result qt
+      RStrLit _  -> fmt result qt
+      CmplxLit _ -> CmplxLit $ '+' : (rep "j" "i" $ rep "J" "i" result )
+      BinLit _   -> BinLit $ '#' : (tail result)
+      HexLit _   -> HexLit $ '#' : (tail result)
+      OctLit _   -> OctLit $ '#' : (tail result)
+      _          -> tkn
+  Nothing -> (Error "error lexing file", "")
+
+-- Match regex and return corresponding token, match length, rest of string
+rxTknMap :: (Regex, Tkn) -> String -> String -> Maybe (Tkn, Int, String)
+rxTknMap (rx, tkn) s qt = case match rx s of
+  Just (result, ln, rest) -> Just (tkn', ln, rest) where
+    tkn' = case tkn of
+      Id _       -> Id result
+      Keyword _  -> Keyword result
+      Literal _  -> Literal result
+      Punct _    -> Punct result
+      StrLit _   -> fmt result qt
+      RStrLit _  -> fmt result qt
+      CmplxLit _ -> CmplxLit $ '+' : (rep "j" "i" $ rep "J" "i" result )
+      BinLit _   -> BinLit $ '#' : (tail result)
+      HexLit _   -> HexLit $ '#' : (tail result)
+      OctLit _   -> OctLit $ '#' : (tail result)
+      _          -> tkn
+  Nothing -> Nothing
+
+fmt :: String -> String -> Tkn
+fmt [] _ = StrLit ""
+fmt s qt = result
+  where
+    (s', rstring, bsEol) | (head s) == 'r' = (tail s, True, '\\' == (last $ tail s))
+                         | otherwise       = (s, False, '\\' == (last s))
+    qln | null qt   = qPrefixLn s'
+        | otherwise = length qt
+    qchars | null qt  = take qln s'
+           | otherwise = qt
+    qtAtEol = drop (length s' - qln) s' == qchars
+    (shortS, longS) | null qt   = (init $ drop qln s', drop qln s')
+                    | bsEol     = (init s', init s')
+                    | otherwise = (s', s')
+    clsd | null qt   = drop qln $ take (length s' - qln) s'
+         | otherwise = take (length s' - qln) s'
+    result | qtAtEol && not rstring = StrLit clsd
+           | qtAtEol && rstring     = RStrLit clsd
+           | otherwise              = intermStrTkn shortS longS qchars bsEol rstring
 
