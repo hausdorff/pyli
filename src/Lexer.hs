@@ -312,6 +312,18 @@ matchLongestTkn s = result
     result = case (filter (\(_, x, _) -> x == maxln) intr) of
       []    -> Nothing
       xs    -> Just ((\(tkn, _, str) -> (tkn, str)) (head xs))
+    tknRxs = [(keyword, Keyword ""),  -- keywords must be matched before ids!!
+              (indentifier, Id ""),
+              (decimalinteger <|> floatnumber, Literal ""),
+              (operator <|> delimiter, Punct ""),
+              (oneOf "#", Comment),
+              (stringliteral, StrLit ""),
+              (rstringliteral, RStrLit ""),
+              (imagnumber, CmplxLit ""),
+              (bininteger, BinLit ""),
+              (hexinteger, HexLit ""),
+              (octinteger, OctLit ""),
+              (seqOf "\\", LineCont)]
 
 rxTknMap' :: (Regex, Tkn) -> String -> String -> (Tkn, String)
 rxTknMap' (rx, tkn) s qt = case match rx s of
@@ -367,4 +379,23 @@ fmt s qt = result
     result | qtAtEol && not rstring = StrLit clsd
            | qtAtEol && rstring     = RStrLit clsd
            | otherwise              = intermStrTkn shortS longS qchars bsEol rstring
+
+-- builds intermediate strings for strings and r-strings
+intermStrTkn :: String -> String -> String -> Bool -> Bool -> Tkn
+intermStrTkn shortS longS qchars bsEol rstring =
+  case (qchars, bsEol) of
+       ("\"", False) -> Error "String not escaped"
+       ("'", False)  -> Error "String not escaped"
+       ("\"", True)  -> tokType shortS qchars
+       ("'", True)   -> tokType shortS qchars
+       (_, _)        -> tokType longS qchars
+    where tokType | rstring   = RStrIntLit
+                  | otherwise = StrIntLit
+
+qPrefixLn :: String -> Int
+qPrefixLn ('\'':'\'':'\'':_) = 3
+qPrefixLn ('\"':'\"':'\"':_) = 3
+qPrefixLn ('\'':_)           = 1
+qPrefixLn ('"':_)            = 1
+qPrefixLn _                  = 0
 
