@@ -4,6 +4,10 @@ pyle is a lexer for Python that I wrote from scratch. You can run it with:
     cabal build
     ./dist/build/pick-lex/pick-lex < $STUFF
 
+You can test the lexer on real python files, or you can pump the files in
+`tests/test_lexer/`. The files with the suffix `.txt` are the raw files, while
+the files with the suffix `.txt.res` are the target results.
+
 pyle is pretty bare-bones. We do not currently support:
 
   * unicode (I know, I know)
