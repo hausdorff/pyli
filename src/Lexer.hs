@@ -1,14 +1,12 @@
--- TODO: change comments, change imports, fix interstr stuff appearing near the bottom
-
 module Lexer where
 
 import Regex
 import LexerUtils
 
 import Data.Char (chr, isSpace)
-import Numeric (readOct, readHex)
 import Data.List (stripPrefix, elemIndex, delete)
 import Data.Maybe (catMaybes)
+import Numeric (readOct, readHex)
 
 
 -- TOKEN LOGIC; all logic relating to the tokens themselves
