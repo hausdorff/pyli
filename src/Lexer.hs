@@ -399,3 +399,86 @@ qPrefixLn ('\'':_)           = 1
 qPrefixLn ('"':_)            = 1
 qPrefixLn _                  = 0
 
+tknStackUpdt :: [Int] -> Int -> ([Tkn], [Int])
+tknStackUpdt istack currIndent
+  | lastIndent == currIndent = ([], istack)
+  | lastIndent < currIndent  = ([Indent], currIndent : istack)
+  | lastIndent > currIndent  = dedent istack currIndent
+    where lastIndent = head istack
+
+-- dedents the stack; indent stack -> current indentation -> (updt tkn & indnt stacks)
+dedent :: [Int] -> Int -> ([Tkn], [Int])
+dedent [] _ = ([],[])
+dedent istack currIndent
+  | i == currIndent = ([], istack)
+  | i < currIndent  = ([Error "file incorrectly indented"], istack)
+  | i > currIndent  = (concat [[Dedent], tkns], istack')
+    where i = head istack
+          (tkns, istack') = dedent (tail istack) currIndent
+
+dropSpace :: String -> String
+dropSpace s = dropWhile isSpace s
+
+-- finds first instance of a substring in a string
+rep :: String -> String -> String -> String
+rep _ _ [] = []
+rep toRepl subst xs@(y:ys) = case stripped of
+  Just ys' -> subst ++ rep toRepl subst ys'
+  Nothing  -> y : rep toRepl subst ys
+  where stripped = stripPrefix toRepl xs
+
+-- NOTE: next two functions come from somewhere else, but I forget where
+-- escapes raw strings
+escraw :: String -> String
+escraw [] = []
+escraw ('\\':'"':xs)  = '\\':'\\':'\\':'"':(escraw xs)
+escraw ('\\':'\'':xs) = '\\':'\\':'\\':'\'':(escraw xs)
+escraw ('\\':xs)      = '\\':'\\':(escraw xs)
+escraw (x:xs)         = x:(escraw xs)
+
+-- escapes backslashes
+escbs :: String -> String
+escbs  [] = []
+escbs  ('\\':'\\':xs) = '\\':'\\':(escbs xs)
+escbs ('\"':xs)       = '\\':'\"':(escbs xs)
+escbs ('\'':xs)       = '\\':'\'':(escbs xs)
+escbs  ('\\':s:xs)
+  | s `elem` "UxbfNouartnv'\"" = '\\':s:(escbs xs)
+  | otherwise                  = '\\':'\\':s:(escbs xs)
+escbs (s:xs)          = s:(escbs xs)
+
+
+-- maps rstrings to strings
+mapStrLits :: [Tkn] -> [Tkn]
+mapStrLits (tkn:ts) = case tkn of
+  RStrLit s      -> StrLit (escraw s) : mapStrLits ts
+  RStrIntLit s q -> StrIntLit ((escraw s) ++ "\\\\\\n") q : mapStrLits ts
+  _              -> tkn : mapStrLits ts
+mapStrLits _ = []
+
+-- maps esc'd oct numbers to chars
+mapEscdOct :: String -> String
+mapEscdOct []              = []
+mapEscdOct ('\\':a:b:c:xs)
+  | allOcts = (chr $ fromIntegral $ fst . head . readOct $ a:b:c:[]):(mapEscdOct xs)
+  | otherwise    = '\\':a:b:c:(mapEscdOct xs)
+    where octals  = map (`elem` (map chr oct)) [a,b,c]
+          allOcts = and octals
+mapEscdOct (a:xs) = a:(mapEscdOct xs)
+
+oct :: [Int]
+oct = [48..55]
+
+-- maps esc'd hex numbers to chars
+mapEscdHex :: String -> String
+mapEscdHex [] = []
+mapEscdHex ('\\':a:b:c:xs)
+  | allHexs = (chr $ fromIntegral $ fst . head . readHex $ b:c:[]):(mapEscdHex xs)
+  | otherwise    = '\\':a:b:c:(mapEscdHex xs)
+    where hexs    = map (`elem` (map chr hex)) [b,c]
+          allHexs = and $ (a=='x') : hexs
+mapEscdHex (a:xs) = a:(mapEscdHex xs)
+
+hex :: [Int]
+hex = ([48..57] ++ [97..102] ++ [65..70])
+
