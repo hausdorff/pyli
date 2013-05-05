@@ -91,7 +91,7 @@ lexlines [] _ _ =
 lexlines istack pstack (s:ss) =
   concat [tkns, nlTkn, lexlines istack' pstack'' ss]
   where
-    (tkns, istack', pstack') = lexLine istack pstack s
+    (tkns, istack', pstack') = lexln istack pstack s
     nlTkn                    = nlTknUpdt pstack' tkns
     pstack''                 = pstackUpdt tkns pstack'
 lexlines istack pstack []
@@ -101,12 +101,82 @@ lexlines istack pstack []
   | otherwise          = (fst $ dedentStack istack 0) ++ [Endmarker]
 
 
+-- lexes one line
+-- indent stack -> parens stack -> a single line -> tokens ->
+--    (tokens, new indent stack, new parens stack)
+lexln :: [Int] -> [String] -> String -> ([Tkn], [Int], [String])
+lexln istack [] s = (concat [itkns, tkns'], istack', pstack')
+  -- lex indents
+  where
+    noWs             = dropWhile isSpace s
+    curridts         = length $ takeWhile isSpace s
+    (tkns, pstack)   = tknizeString noWs []
+    (tkns', pstack') = stackUpdtWIndents tkns pstack
+    -- INDENT tokens should not be emitted if line is empty
+    (itkns, istack') | null tkns' = ([], istack)
+                     | otherwise  = updateStack istack curridts
+lexln istack pstack s  = (tkns', istack, pstack'')
+  -- don't lex indents
+  where
+    (tkns, pstack')   = tknizeOrLexCont pstack s
+    (tkns', pstack'') = stackUpdtWOIndents tkns pstack'
 
+-- if parenthesis stack is empty, there is no line continuation.
+-- if line cont is in tokens and not in paren stack, remove from tokens
+-- if line cont is in tokens and not in paren stack, push to stack
+-- if line cont is in paren stack and not in tokens, remove from stack
+stackUpdtWOIndents :: [Tkn] -> [String] -> ([Tkn], [String])
+stackUpdtWOIndents tkns pstack = case (LineCont `elemIndex` tkns) of
+  Just x  -> isEol x
+  Nothing -> (tkns' False False, pstack' False) --(False, Comment)
+  where
+    isEol n | n == ((length tkns) - 1) = (tkns' True False, pstack' True) --(True, Comment)
+            | otherwise                = (tkns' False True, pstack' False) --(False, Error "Backslash in the wrong place")
+    lcInPstack = "\\" `elem` pstack
+    tkns' lcAtEol err | lcAtEol && lcInPstack ||
+                        null pstack = delete LineCont tkns
+                      | err         = (Error "backslash must be at eol") : tkns
+                      | otherwise   = tkns
+    pstack' lcAtEol | lcAtEol && not lcInPstack = "\\" : pstack
+                    | not lcAtEol && lcInPstack = delete "\\" pstack
+                    | otherwise                 = pstack
+
+-- updates token and pstack states based on whether line continuation was (1)
+-- present, and (2) at the EOL
+stackUpdtWIndents :: [Tkn] -> [String] -> ([Tkn], [String])
+stackUpdtWIndents tkns pstack = case (LineCont `elemIndex` tkns) of
+  -- if there is no line continuation, return
+  -- line continuations that do not occur at EOL result in error token
+  -- line continuations at EOL result in normal return
+  Just x  -> isEol x
+  Nothing -> (tkns, pstack)
+  where isEol n | n == ((length tkns) - 1) =
+                    (delete LineCont tkns, "\\" : pstack)
+                | otherwise =
+                    ((Error "backslash must be at EOL") : tkns, pstack)
+
+-- either tokenizes input string outright, or "continues" lexing b/c the
+-- previous line was a multiline string
+tknizeOrLexCont :: [String] -> String -> ([Tkn], [String])
+tknizeOrLexCont pstack s
+  | head pstack == "\\"           = tknizeString s (tail pstack)
+  | head pstack `elem` strDelim   = lexcont s pstack
+  | otherwise                     = tknizeString s pstack
+  where strDelim = ["\'", "'''", "\"", "\"\"\"",
+                    "r'", "r'''", "r\"", "r\"\"\""]
+
+
+
+-- HELPER FUNCTIONS
+
+-- push e onto stack `st` if it is not in the stack already
 pushIfUnique :: Eq a => a -> [a] -> [a]
 pushIfUnique e st = case (e `elem` st) of
   True  -> st
   False -> e:st
 
+-- if last token is a multiline string, add open to pstack to track it. ipstack
+-- is the intermediate pstack
 pstackUpdt :: [Tkn] -> [String] -> [String]
 pstackUpdt [] pstack   = pstack
 pstackUpdt tkns pstack = case last tkns of
@@ -114,10 +184,12 @@ pstackUpdt tkns pstack = case last tkns of
   RStrIntLit _ st -> pushIfUnique ('r':st) pstack
   _               -> pstack
 
+
+-- adds newline token to stack if we encounter a non-escaped newline
 nlTknUpdt :: [String] -> [Tkn] -> [Tkn]
 nlTknUpdt _ []        = []  -- no tokens, then no nl
-nlTknUpdt (_:_) (_:_) = []  -- nested parentheses, then new nl
 nlTknUpdt ["\\"] _    = []  -- escaped nl
+nlTknUpdt (_:_) (_:_) = []  -- nested parentheses, then new nl
 nlTknUpdt [] (x:xs)   = case last (x:xs) of
   StrIntLit _ _  -> []
   RStrIntLit _ _ -> []
