@@ -98,7 +98,6 @@ lexlines istack pstack []
   | istack == [0]      = [Endmarker]
   | otherwise          = (fst $ dedent istack 0) ++ [Endmarker]
 
-
 -- lexes one line
 -- indent stack -> parens stack -> a single line -> tokens ->
 --    (tokens, new indent stack, new parens stack)
