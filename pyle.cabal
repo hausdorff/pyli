@@ -5,7 +5,7 @@ cabal-version:    >= 1.2
 
 library
   hs-source-dirs: src
-  build-depends:  base == 4.3.*, HUnit
+  build-depends:  base == 4.5.*, HUnit
 
 executable        pyle
   main-is:        Main.hs
