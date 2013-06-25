@@ -13,8 +13,3 @@ main = do code <- (hGetContents stdin)
           case res of
             [] -> putStrLn "#f"
             x  -> showNL x
-
-showNL :: [String] -> IO()
-showNL (t:ts) = do putStrLn t
-                   showNL ts
-showNL [] = do putStrLn ""
