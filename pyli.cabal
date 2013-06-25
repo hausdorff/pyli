@@ -9,7 +9,7 @@ library
 
 -- The compiler binary
 executable        pyli
-  main-is:        Main.hs
+  main-is:        Pyle.hs
   hs-source-dirs: src
   ghc-options:    -Wall
 
