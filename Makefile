@@ -2,7 +2,7 @@ pyle:
 	@./dist/build/pyle/pyle
 
 pyli:
-	@./dist/build/pyli/pyli
+	@./dist/build/pyli/pyli | ./ast_to_lisp
 
 compile:
 	@cabal configure > /dev/null
