@@ -1,14 +1,24 @@
-pyle is a lexer for Python that I wrote from scratch. You can run it with:
+pyli is a ~~lexer~~ compiler for Python 3. Currently you can put Python 3 source into it and it will output a lispy AST:
+
+    cat stuff.py | make pyli
+
+Or more verbosely:
 
     cabal configure
     cabal build
-    ./dist/build/pick-lex/pick-lex < $STUFF
+    cat stuff.py | ./dist/build/pyli/pyli
 
-You can test the lexer on real python files, or you can pump the files in
-`tests/test_lexer/`. The files with the suffix `.txt` are the raw files, while
-the files with the suffix `.txt.res` are the target results.
+The lexer is both built directly into the `pyli` compiler, and compiled as a separate binary just for funsies. You can run it as:
 
-pyle is pretty bare-bones. We do not currently support:
+    cat stuff.py | make pyle
+
+Or more verbosely:
+
+    cabal configure
+    cabal build
+    cat stuff.py | ./dist/build/pyle/pyle
+
+`pyli` is pretty bare-bones. We do not currently support:
 
   * unicode (I know, I know)
   * bytestrings
@@ -17,6 +27,6 @@ pyle is pretty bare-bones. We do not currently support:
 
 ... but it is enough to do some interesting things.
 
-pyle is distributed with an MIT license which basically lets you use it for
+`pyli` is distributed with an MIT license which basically lets you use it for
 almost anything, as long as you keep the license in the project, and don't
 take my name off of the stuff I wrote.
