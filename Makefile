@@ -1,7 +1,7 @@
 pyle:
 	@./dist/build/pyle/pyle
 
-parse:
+pyli:
 	@./dist/build/pyli/pyli
 
 compile:
