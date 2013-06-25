@@ -1,4 +1,4 @@
-lex:
+pyle:
 	@./dist/build/pyle/pyle
 
 parse:
