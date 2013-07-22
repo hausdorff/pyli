@@ -23,7 +23,7 @@ derpTkn (Literal x)      = Derp.Token "LIT"     x
 derpTkn (Punct x)        = Derp.Token x         x
 derpTkn (Error x)        = Derp.Token "ERROR"   x
 derpTkn (Endmarker)      = Derp.Token "ENDMARKER" "ENDMARKER"
-derpTkn (Comment)        = Derp.Token "(COMMENT)"
+derpTkn (Comment)        = Derp.Token "COMMENT" "COMMENT"
 -- "Helper" tokens
 derpTkn (StrLit x)       = Derp.Token "STRING"  x
 derpTkn (CmplxLit x)     = Derp.Token "LIT"     x
