@@ -48,12 +48,12 @@ funcdef = def <~> id <~> parameters <~> colon <~> body ==> emitFuncdef
 
 -- corresponds to `parameters` in grammar
 parameters :: Parser String
-parameters = openParen <~> zeroOrMoreParams <~> closeParen ==> emitParams
+parameters = openParen <~> zeroPlusParams <~> closeParen ==> emitParams
   where openParen  = ter "("
         closeParen = ter ")"
 
-zeroOrMoreParams :: Parser String
-zeroOrMoreParams = noParams
+zeroPlusParams :: Parser String
+zeroPlusParams = noParams
                    <|> id <~> restOfIds ==> emitParamList
                    <|> comma
   where noParams  = eps ""
@@ -69,17 +69,14 @@ stmt = simpleStmt <|> compoundStmt
 -- corresponds to `simple_stmt` in grammar
 -- simple statements are either terminated with newline or semicolon
 simpleStmt :: Parser String
-simpleStmt = smallStmt <~> zeroOrMoreSmallStmts <~> endOfStmts
-              ==> (\(x,(x2,_)) -> if null x2
-                                     then "(" ++ x ++ ")"
-                                     else "(begin (" ++ x ++ ") " ++ x2 ++ ")")
-  where noMoreStmts     = eps ""
-        semicolon       = ter ";"
-        newline         = ter "NEWLINE"
-        endOfStmts      = (noMoreStmts <~> newline)
-                          <|> (semicolon <~> newline)
+simpleStmt = smallStmt <~> zeroPlusSmallStmts <~> endOfStmts ==> emitSimpleStmt
+  where noMoreStmts = eps ""
+        semicolon   = ter ";"
+        newline     = ter "NEWLINE"
+        endOfStmts  = (noMoreStmts <~> newline)
+                      <|> (semicolon <~> newline)
 
-zeroOrMoreSmallStmts = noMoreStmts
+zeroPlusSmallStmts = noMoreStmts
                        <|> moreSmallStmts
   where noMoreStmts     = eps ""
         semicolon      = ter ";"
@@ -138,3 +135,9 @@ emitLine (sp, sexp) = join " " [sp, sexp]
 
 emitSmallStmts :: (String, (String, String)) -> String
 emitSmallStmts (_, (stmts, end)) = join " " ["(" ++ stmts ++ ")", end]
+
+emitSimpleStmt :: (String, (String, (String, String))) -> String
+emitSimpleStmt (st1, (st2, _)) = case (null st2) of
+  True  -> "(" ++ st1 ++ ")"
+  False -> "(begin (" ++ st1 ++ ") " ++ st2 ++ ")"
+
