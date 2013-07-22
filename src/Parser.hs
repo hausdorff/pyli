@@ -25,16 +25,42 @@ parseFile tkns = runParse fileInput $ derpTkns tkns
 -- private.
 
 -- corresponds to `file_input` in grammar
--- a file is a series of lines followed by ENDMARKER
 fileInput :: Parser String
-fileInput = lineCfg <~> ter "ENDMARKER" ==> emitProgram
+fileInput = lines <~> endOfFile ==> emitProgram
+  where lines     = lineCfg
+        endOfFile = ter "ENDMARKER"
 
--- line is null (`eps`), or a newline followed by otherlines, or a statement
--- followed by lines
 lineCfg :: Parser String
-lineCfg = eps ""
-          <|> ter "NEWLINE" <~> lineCfg ==> emitNl
-          <|> stmt <~> lineCfg          ==> emitLine
+lineCfg = emptyLine
+          <|> newline <~> moreLines ==> emitNl
+          <|> stmt <~> moreLines    ==> emitLine
+  where emptyLine = eps ""
+        newline = ter "NEWLINE"
+        moreLines = lineCfg
+
+-- corresponds to `funcdef` in grammar
+funcdef :: Parser String
+funcdef = def <~> id <~> parameters <~> colon <~> body ==> emitFuncdef
+  where def   = ter "def"
+        id    = ter "ID"
+        colon = ter ":"
+        body  = suite
+
+-- corresponds to `parameters` in grammar
+parameters :: Parser String
+parameters = openParen <~> paramsCfg <~> closeParen ==> emitParams
+  where openParen  = ter "("
+        closeParen = ter ")"
+
+paramsCfg :: Parser String
+paramsCfg = noParams
+            <|> id <~> restOfIds ==> emitParamList
+            <|> comma
+  where noParams  = eps ""
+        id        = ter "ID"
+        comma     = ter ","
+        restOfIds = noParams
+                    <|> comma <~> id <~> restOfIds ==> emitRestOfParams
 
 
 
@@ -44,7 +70,7 @@ lineCfg = eps ""
 -- a lispy AST.
 --
 -- Each is accompanied by an emit function that gives hints about how and why
--- the destructuring is happening. For example, `emitFunc` has the `emitFunc'`
+-- the destructuring is happening. For example, `emitFuncdef` has `emitFuncdef'`
 -- as a helper, and it takes `id`, `params`, and `body` as parameters, which
 -- tells you a lot about how the destructuring works.
 
@@ -54,12 +80,12 @@ emitProgram (p, _) = emitProgram' p
 emitProgram' :: String -> String
 emitProgram' p = "(program " ++ p ++ ")"
 
-emitFunc :: (String,(String,(String,(String,String)))) -> String
-emitFunc (_, (id, (params, (_, body)))) = emitFunc' id params body
+emitFuncdef :: (String,(String,(String,(String,String)))) -> String
+emitFuncdef (_, (id, (params, (_, body)))) = emitFuncdef' id params body
 
-emitFunc' :: String -> String -> String -> String
-emitFunc' id params body = (join " " [("(def (" ++ id), params])
-                           ++ ") (" ++ body ++ "))"
+emitFuncdef' :: String -> String -> String -> String
+emitFuncdef' id params body = (join " " [("(def (" ++ id), params])
+                              ++ ") (" ++ body ++ "))"
 
 emitParams :: (String, (String, String)) -> String
 emitParams (_, (ps, _)) = ps
@@ -67,8 +93,12 @@ emitParams (_, (ps, _)) = ps
 emitParamList :: (String, String) -> String
 emitParamList (s1,s2) = join " " [s1,s2]
 
+emitRestOfParams :: (String,(String,String)) -> String
+emitRestOfParams (_,(name,_)) = name
+
 emitNl :: (String,String) -> String
 emitNl (_,x) = x
 
 emitLine :: (String,String) -> String
 emitLine (s,x) = join " " [s,x]
+
