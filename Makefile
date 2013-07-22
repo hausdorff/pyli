@@ -16,5 +16,5 @@ clean:
 	rm -f sdiff
 
 ast_to_lisp:
-	raco exe ast_to_lisp.rkt
+	@raco exe ast_to_lisp.rkt
 
