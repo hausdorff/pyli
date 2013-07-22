@@ -4,12 +4,11 @@ import qualified Parser as Parser
 import DerpInterface
 
 import Data.Set
-import Text.Derp as Derp
 
 -- This `main` allows us to generate a compiler binary, see cabal file
 main :: IO ()
 main = do code <- (hGetContents stdin)
-          let res = toList $ Derp.runParse Parser.fileInput $ derpTkns $ Lexer.lex code
+          let res = toList $ Parser.parseFile $ Lexer.lex code
           case res of
             [] -> putStrLn "#f"
             x  -> showNL x
