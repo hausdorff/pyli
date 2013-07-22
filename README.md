@@ -24,6 +24,7 @@ Or more verbosely:
   * bytestrings
   * unicode bytestrings!
   * tabs, because they're evil. (just kidding; it's because I'm lazy)
+  * decorators
 
 ... but it is enough to do some interesting things.
 
