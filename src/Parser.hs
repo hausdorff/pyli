@@ -48,19 +48,53 @@ funcdef = def <~> id <~> parameters <~> colon <~> body ==> emitFuncdef
 
 -- corresponds to `parameters` in grammar
 parameters :: Parser String
-parameters = openParen <~> paramsCfg <~> closeParen ==> emitParams
+parameters = openParen <~> zeroOrMoreParams <~> closeParen ==> emitParams
   where openParen  = ter "("
         closeParen = ter ")"
 
-paramsCfg :: Parser String
-paramsCfg = noParams
-            <|> id <~> restOfIds ==> emitParamList
-            <|> comma
+zeroOrMoreParams :: Parser String
+zeroOrMoreParams = noParams
+                   <|> id <~> restOfIds ==> emitParamList
+                   <|> comma
   where noParams  = eps ""
         id        = ter "ID"
         comma     = ter ","
         restOfIds = noParams
                     <|> comma <~> id <~> restOfIds ==> emitRestOfParams
+
+-- corresponds to `stmt` in grammar
+stmt :: Parser String
+stmt = simpleStmt <|> compoundStmt
+
+-- corresponds to `simple_stmt` in grammar
+-- simple statements are either terminated with newline or semicolon
+simpleStmt :: Parser String
+simpleStmt = smallStmt <~> zeroOrMoreSmallStmts <~> endOfStmts
+              ==> (\(x,(x2,_)) -> if null x2
+                                     then "(" ++ x ++ ")"
+                                     else "(begin (" ++ x ++ ") " ++ x2 ++ ")")
+  where noMoreStmts     = eps ""
+        semicolon       = ter ";"
+        newline         = ter "NEWLINE"
+        endOfStmts      = (noMoreStmts <~> newline)
+                          <|> (semicolon <~> newline)
+
+zeroOrMoreSmallStmts = noMoreStmts
+                       <|> moreSmallStmts
+  where noMoreStmts     = eps ""
+        semicolon      = ter ";"
+        moreSmallStmts = semicolon <~> smallStmt <~> moreSmallStmts
+                          ==> emitSmallStmts
+
+-- corresponds to `small_stmt` in grammar
+smallStmt :: Parser String
+smallStmt = expr_stmt
+            <|> del_stmt
+            <|> pass_stmt
+            <|> flow_stmt
+            <|> global_stmt
+            <|> nonlocal_stmt
+            <|> assert_stmt
 
 
 
@@ -84,21 +118,23 @@ emitFuncdef :: (String,(String,(String,(String,String)))) -> String
 emitFuncdef (_, (id, (params, (_, body)))) = emitFuncdef' id params body
 
 emitFuncdef' :: String -> String -> String -> String
-emitFuncdef' id params body = (join " " [("(def (" ++ id), params])
+emitFuncdef' id params body = (join " " ["(def (" ++ id, params])
                               ++ ") (" ++ body ++ "))"
 
 emitParams :: (String, (String, String)) -> String
 emitParams (_, (ps, _)) = ps
 
 emitParamList :: (String, String) -> String
-emitParamList (s1,s2) = join " " [s1,s2]
+emitParamList (s1, s2) = join " " [s1, s2]
 
 emitRestOfParams :: (String,(String,String)) -> String
-emitRestOfParams (_,(name,_)) = name
+emitRestOfParams (_, (name, _)) = name
 
 emitNl :: (String,String) -> String
-emitNl (_,x) = x
+emitNl (_, ln) = ln
 
 emitLine :: (String,String) -> String
-emitLine (s,x) = join " " [s,x]
+emitLine (sp, sexp) = join " " [sp, sexp]
 
+emitSmallStmts :: (String, (String, String)) -> String
+emitSmallStmts (_, (stmts, end)) = join " " ["(" ++ stmts ++ ")", end]
