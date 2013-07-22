@@ -25,6 +25,7 @@ parseFile tkns = runParse fileInput $ derpTkns tkns
 -- private.
 
 -- corresponds to `file_input` in grammar
+-- a file is a series of lines followed by ENDMARKER
 fileInput :: Parser String
 fileInput = lineCfg <~> ter "ENDMARKER" ==> emitProgram
 
