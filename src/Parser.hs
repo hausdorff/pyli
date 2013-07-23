@@ -91,8 +91,153 @@ smallStmt = exprStmt
             <|> passStmt
             <|> flow_stmt
             <|> globalStmt
-            <|> nonlocal_stmt
-            <|> assert_stmt
+            <|> nonlocalStmt
+            <|> assertStmt
+
+-- corresponds to `expr_stmt` in grammar
+-- augmented assignment is stuff like `+=` and `*=`. A "test" is an assignment
+-- with a conditional, eg, `x = 1 if 1 == y else 2`.
+
+-- TODO: REFACTOR THIS TO USE DIFFERENT FUNCTIONS AND STUFF
+exprStmt :: Parser String
+exprStmt = testlist <~> augassign <~> testlist ==> emitAugAssignStmt
+           <|> testlist <~> equals <~> tuple_or_test ==> emitAssignStmt
+           <|> tuple_or_test ==> emitExprStmt
+    where equals = ter "="
+
+-- corresponds to `augassign` in grammar
+augassign :: Parser String
+augassign = ter "+="
+            <|> ter "-="
+            <|> ter "*="
+            <|> ter "/="
+            <|> ter "%="
+            <|> ter "&="
+            <|> ter "|="
+            <|> ter "^="
+            <|> ter "<<="
+            <|> ter ">>="
+            <|> ter "**="
+            <|> ter "//="
+
+-- corresponds to `del_stmt` in grammar
+delStmt :: Parser String
+delStmt = del <~> star_expr ==> emitDelStmt
+  where del = ter "del"
+
+-- corresponds to `pass_stmt` in grammar
+passStmt :: Parser String
+passStmt = pass ==> emitPassStmt
+  where pass = ter "pass" 
+
+-- corresponds to `flow_stmt` in grammar
+-- TODO: UPDATE THIS FUNCTION
+flow_stmt :: Parser String
+flow_stmt = breakStmt <|> continueStmt <|> returnStmt <|> raiseStmt
+
+-- corresponds to `break_stmt` in grammar
+breakStmt :: Parser String
+breakStmt = break ==> emitBreakStmt
+  where break = ter "break"
+
+-- corresponds to `continue_stmt` in grammar
+continueStmt :: Parser String
+continueStmt = continue ==> emitContinueStmt
+  where continue = ter "continue"
+
+-- corresponds to `return_stmt` in grammar
+-- TODO: REFACTOR THE MIDDLE PART OF THE RULE BELOW
+returnStmt :: Parser String
+returnStmt = return <~> (eps "" <|> testlist) ==> emitReturnStmt
+  where return = ter "return"
+
+-- corresponds to `raise_stmt` in grammar
+-- TODO: REFACTOR THIS WHOLE FUNCTION
+raiseStmt :: Parser String
+raiseStmt =     raise
+            <~> (eps "" <|> (test <~>
+                             (eps "" <|> from <~> test ==> (\(_,t) -> t))
+                              ==> (\(t,f)-> join " " [t,f]))) 
+                 ==> (\(s1,s2) -> join " " [s1,s2])
+  where raise = ter "raise"
+        from  = ter "from"
+
+-- corresponds to `global_stmt` in grammar
+globalStmt :: Parser String
+globalStmt = global <~> id <~> zeroPlusIds ==> emitGlobalStmt
+  where global = ter "global"
+        id     = ter "ID"
+
+zeroPlusIds :: Parser String
+zeroPlusIds = noMoreIds
+              <|> comma <~> id <~> zeroPlusIds ==> emitRestOfIds
+  where noMoreIds = eps ""
+        comma     = ter ","
+        id        = ter "ID"
+
+-- corresponds to `nonlocal_stmt` in grammar
+nonlocalStmt :: Parser String
+nonlocalStmt = nonlocal <~> id <~> zeroPlusIds ==> emitNonlocalStmt
+  where nonlocal = ter "nonlocal"
+        id       = ter "ID"
+
+-- corresponds to `assert_stmt` in grammar
+assertStmt:: Parser String
+assertStmt = assert <~> test <~> zeroPlusTests ==> emitAssertStmt
+  where assert = ter "assert"
+
+zeroPlusTests :: Parser String
+zeroPlusTests = noMoreTests <|> (comma <~> test) ==> emitRestTests
+  where noMoreTests = eps ""
+        comma       = ter ","
+
+-- corresponds to `compound_stmt` in grammar
+compoundStmt :: Parser String
+compoundStmt = ifStmt
+               <|> whileStmt
+               <|> for_stmt
+               <|> try_stmt
+               <|> funcdef
+
+-- corresponds to `if_stmt` in grammar
+ifStmt :: Parser String
+ifStmt = ifKeyword <~> test <~> colon <~> block <~> elseBlock ==> emitIfStmt
+  where ifKeyword = ter "if"
+        colon     = ter ":"
+        block     = suite
+        elseBlock = zeroOrMoreElifs <~> elseClause
+
+elseClause :: Parser String
+elseClause = eps ""
+             <|> elseKeyword <~> colon <~> block ==> emitElseClause
+  where elseKeyword = ter "else"
+        colon       = ter ":"
+        block       = suite
+
+zeroOrMoreElifs :: Parser String
+zeroOrMoreElifs = noMoreElifs
+                  <|> elif <~> test <~> colon <~> block <~> zeroOrMoreElifs
+                  ==> emitElifs
+  where noMoreElifs = eps "" 
+        elif        = ter "elif"
+        colon       = ter ":"
+        block       = suite
+
+-- corresponds to `while_stmt` in grammar
+whileStmt :: Parser String
+whileStmt = while <~> test <~> colon <~> block <~> whileElseClause
+            ==> emitWhileStmt
+  where while = ter "while"
+        colon = ter ":"
+        block = suite
+
+whileElseClause :: Parser String
+whileElseClause = noElseClause
+                  <|> elseKeyword <~> colon <~> block ==> emitWhileElseClause
+  where noElseClause = eps ""
+        elseKeyword  = ter "else"
+        colon        = ter ":"
+        block        = suite
 
 
 
@@ -182,9 +327,43 @@ emitGlobalStmt (_, (x, xs)) = joinStrs [global, exps]
   where global = "global "
         exps   = join " " [x,xs]
 
--- TODO: REFACTOR
-emitRestOfIds :: (String,(String,String))
-emitRestOfIds (_,(i,r)) = join " " [i,r]
+emitRestOfIds :: (String,(String,String)) -> String
+emitRestOfIds (_, (x, xs)) = join " " [x, xs]
+
+emitNonlocalStmt :: (String,(String,String)) -> String
+emitNonlocalStmt (_, (x, xs)) = joinStrs [nonlocal, exps]
+  where nonlocal = "nonlocal "
+        exps     = join " " [x, xs]
+
+emitRestTests :: (String,String) -> String
+emitRestTests (_, tst) = tst
+
+emitAssertStmt :: (String,(String,String)) -> String
+emitAssertStmt (_, (exp1, exp2)) = joinStrs [assert, exps]
+  where assert = "assert "
+        exps   = join " " [exp1,exp2]
+
+emitIfStmt :: (String,(String,(String,(String,(String,String))))) -> String
+emitIfStmt (_,(t,(_,(s,(elif,els))))) = (join " " [(join " " [("(cond (" ++ t ++ " (" ++ s ++ "))"), elif]) , els]) ++ ")"
+
+emitElseClause :: (String,(String,String)) -> String
+emitElseClause (_, (_, body)) = joinStrs [header, body, footer]
+  where header = "(else ("
+        footer = "))"
+
+emitElifs :: (String,(String,(String,(String,String)))) -> String
+emitElifs (_, (tk, (_, (cond, block)))) = join " " [header, block]
+  where wrappedCond = " (" ++ cond ++ ")"
+        header      = "(" ++ tk ++ wrappedCond ++ ")"
+
+emitWhileElseClause :: (String,(String,String)) -> String
+emitWhileElseClause (_, (_, s)) = "(" ++ s ++ ")"
+
+emitWhileStmt :: (String,(String,(String,(String,(String))))) -> String
+emitWhileStmt (_,(t,(_,(s,(block))))) =  body ++ footer
+  where header = "(while " ++ t ++ " (" ++ s ++ ")"
+        body   = join " " [header, block]
+        footer = ")"
 
 joinStrs :: [String] -> String
 joinStrs ss = join "" ss
