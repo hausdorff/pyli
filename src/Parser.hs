@@ -77,15 +77,15 @@ simpleStmt = smallStmt <~> zeroPlusSmallStmts <~> endOfStmts ==> emitSimpleStmt
                       <|> (semicolon <~> newline)
 
 zeroPlusSmallStmts = noMoreStmts
-                       <|> moreSmallStmts
-  where noMoreStmts     = eps ""
+                     <|> moreSmallStmts
+  where noMoreStmts    = eps ""
         semicolon      = ter ";"
         moreSmallStmts = semicolon <~> smallStmt <~> moreSmallStmts
                           ==> emitSmallStmts
 
 -- corresponds to `small_stmt` in grammar
 smallStmt :: Parser String
-smallStmt = expr_stmt
+smallStmt = exprStmt
             <|> del_stmt
             <|> pass_stmt
             <|> flow_stmt
@@ -109,14 +109,18 @@ emitProgram :: (String,String) -> String
 emitProgram (p, _) = emitProgram' p
 
 emitProgram' :: String -> String
-emitProgram' p = "(program " ++ p ++ ")"
+emitProgram' prog = joinStrs [header, prog, footer]
+  where header = "(program "
+        footer = ")"
 
 emitFuncdef :: (String,(String,(String,(String,String)))) -> String
 emitFuncdef (_, (id, (params, (_, body)))) = emitFuncdef' id params body
 
 emitFuncdef' :: String -> String -> String -> String
-emitFuncdef' id params body = (join " " ["(def (" ++ id, params])
-                              ++ ") (" ++ body ++ "))"
+emitFuncdef' id params body = joinStrs [header, wrappedBody, footer]
+  where header      = join " " ["(def (" ++ id, params] ++ ") "
+        wrappedBody = "(" ++ body
+        footer      = "))"
 
 emitParams :: (String, (String, String)) -> String
 emitParams (_, (ps, _)) = ps
@@ -131,13 +135,31 @@ emitNl :: (String,String) -> String
 emitNl (_, ln) = ln
 
 emitLine :: (String,String) -> String
-emitLine (sp, sexp) = join " " [sp, sexp]
+emitLine (sp, exp) = join " " [sp, exp]
 
 emitSmallStmts :: (String, (String, String)) -> String
-emitSmallStmts (_, (stmts, end)) = join " " ["(" ++ stmts ++ ")", end]
+emitSmallStmts (_, (stmts, end)) = joinStrs [wrappedStmt, end]
+  where wrappedStmt = "(" ++ stmts ++ ") "
 
 emitSimpleStmt :: (String, (String, (String, String))) -> String
 emitSimpleStmt (st1, (st2, _)) = case (null st2) of
   True  -> "(" ++ st1 ++ ")"
-  False -> "(begin (" ++ st1 ++ ") " ++ st2 ++ ")"
+  False -> joinStrs [header, body, footer]
+  where header = "(begin (" ++ st1 ++ ") "
+        body   = st2
+        footer = ")"
 
+emitAssignStmt :: (String, (String, String)) -> String
+emitAssignStmt (id, (_, rhs)) = joinStrs [lhs, rhs]
+  where lhs = "= (" ++ id ++ ")"
+
+emitExprStmt :: String -> String
+emitExprStmt st = joinStrs ["expr ", st]
+
+emitAugAssignStmt :: (String, (String, String)) -> String
+emitAugAssignStmt (expr,(aug,rhs)) = joinStrs [operator, lhs, rhs]
+  where operator = "\"" ++ aug ++ "\" "
+        lhs      = "(" ++ expr ++ ") "
+
+joinStrs :: [String] -> String
+joinStrs ss = join "" ss
