@@ -54,8 +54,8 @@ parameters = openParen <~> zeroPlusParams <~> closeParen ==> emitParams
 
 zeroPlusParams :: Parser String
 zeroPlusParams = noParams
-                   <|> id <~> restOfIds ==> emitParamList
-                   <|> comma
+                 <|> id <~> restOfIds ==> emitParamList
+                 <|> comma
   where noParams  = eps ""
         id        = ter "ID"
         comma     = ter ","
@@ -195,8 +195,8 @@ zeroPlusTests = noMoreTests <|> (comma <~> test) ==> emitRestTests
 compoundStmt :: Parser String
 compoundStmt = ifStmt
                <|> whileStmt
-               <|> for_stmt
-               <|> try_stmt
+               <|> forStmt
+               <|> tryStmt
                <|> funcdef
 
 -- corresponds to `if_stmt` in grammar
@@ -234,6 +234,24 @@ whileStmt = while <~> test <~> colon <~> block <~> whileElseClause
 whileElseClause :: Parser String
 whileElseClause = noElseClause
                   <|> elseKeyword <~> colon <~> block ==> emitWhileElseClause
+  where noElseClause = eps ""
+        elseKeyword  = ter "else"
+        colon        = ter ":"
+        block        = suite
+
+-- corresponds to `for_stmt` in grammar
+forStmt :: Parser String
+forStmt = for <~> id <~> inKeywrd <~> test <~> colon <~> block <~> forElseClause
+          ==> emitForStmt
+  where for      = ter "for"
+        id       = ter "ID"
+        inKeywrd = ter "in"
+        colon    = ter ":"
+        block    = suite
+
+forElseClause :: Parser String
+forElseClause = noElseClause
+                <|> elseKeyword <~> colon <~> block ==> emitForElseClause
   where noElseClause = eps ""
         elseKeyword  = ter "else"
         colon        = ter ":"
@@ -364,6 +382,38 @@ emitWhileStmt (_,(t,(_,(s,(block))))) =  body ++ footer
   where header = "(while " ++ t ++ " (" ++ s ++ ")"
         body   = join " " [header, block]
         footer = ")"
+
+emitForElseClause :: (String,(String,String)) -> String
+emitForElseClause (_, (_, block)) = "(" ++ block ++ ")"
+
+emitForStmt :: (String,(String,(String,(String,(String,(String,String))))))
+               -> String
+emitForStmt (_, (id, (_, (tst, (_, (stmts, els)))))) = joinStrs [forOpen,
+                                                                 forLoop,
+                                                                 forClose]
+  where forOpen = "(for "
+        forLoop = join " " [id, tst, "(", stmts, ")", els]
+        forClose = ")"
+
+emitTryStmt :: (String,(String,(String,String))) -> String
+emitTryStmt (_, (_, (exp, except))) = joinStrs [header, exp', except, footer]
+  where header = "(try ("
+        exp'   = exp ++ ") "
+        footer = ")"
+
+emitExceptClauses :: (String,(String,(String,String))) -> String
+emitExceptClauses (exc, (_, (exp, bl))) = join " " [clause, bl]
+  where clause = "(" ++ exc ++ " (" ++ exp ++ "))"
+
+emitExceptClause :: (String,String) -> String
+emitExceptClause (_,bl) = joinStrs [except, bl, footer]
+  where except = "(except "
+        footer = ")"
+
+emitSuite :: (String,(String,(String,String))) -> String
+emitSuite (_, (_, (stm, _))) = joinStrs [suitek, stm]
+  where suitek = "suite "
+
 
 joinStrs :: [String] -> String
 joinStrs ss = join "" ss
