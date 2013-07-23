@@ -4,7 +4,7 @@
 -- grammar. Nearly everything also appears in the order it does in the grammar.
 module Parser (parseFile) where
 
-import Prelude hiding (id)
+import Prelude hiding (break, exp, id, lines, return)
 import Data.String.Utils (join)
 import Data.Set (Set)
 import Text.Derp
@@ -76,6 +76,7 @@ simpleStmt = smallStmt <~> zeroPlusSmallStmts <~> endOfStmts ==> emitSimpleStmt
         endOfStmts  = (noMoreStmts <~> newline)
                       <|> (semicolon <~> newline)
 
+zeroPlusSmallStmts :: Parser String
 zeroPlusSmallStmts = noMoreStmts
                      <|> moreSmallStmts
   where noMoreStmts    = eps ""
@@ -86,10 +87,10 @@ zeroPlusSmallStmts = noMoreStmts
 -- corresponds to `small_stmt` in grammar
 smallStmt :: Parser String
 smallStmt = exprStmt
-            <|> del_stmt
-            <|> pass_stmt
+            <|> delStmt
+            <|> passStmt
             <|> flow_stmt
-            <|> global_stmt
+            <|> globalStmt
             <|> nonlocal_stmt
             <|> assert_stmt
 
@@ -157,9 +158,33 @@ emitExprStmt :: String -> String
 emitExprStmt st = joinStrs ["expr ", st]
 
 emitAugAssignStmt :: (String, (String, String)) -> String
-emitAugAssignStmt (expr,(aug,rhs)) = joinStrs [operator, lhs, rhs]
+emitAugAssignStmt (exp,(aug,rhs)) = joinStrs [operator, lhs, rhs]
   where operator = "\"" ++ aug ++ "\" "
-        lhs      = "(" ++ expr ++ ") "
+        lhs      = "(" ++ exp ++ ") "
+
+emitDelStmt :: (String,String) -> String
+emitDelStmt (_, exp) = joinStrs ["del ", exp]
+
+emitPassStmt :: String -> String
+emitPassStmt _ = "pass"
+
+emitBreakStmt :: String -> String
+emitBreakStmt _ = "break"
+
+emitContinueStmt :: String -> String
+emitContinueStmt _ = "continue"
+
+emitReturnStmt :: (String,String) -> String
+emitReturnStmt (_, exp) = join " " ["return", exp]
+
+emitGlobalStmt :: (String,(String,String)) -> String
+emitGlobalStmt (_, (x, xs)) = joinStrs [global, exps]
+  where global = "global "
+        exps   = join " " [x,xs]
+
+-- TODO: REFACTOR
+emitRestOfIds :: (String,(String,String))
+emitRestOfIds (_,(i,r)) = join " " [i,r]
 
 joinStrs :: [String] -> String
 joinStrs ss = join "" ss
