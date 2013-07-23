@@ -89,7 +89,7 @@ smallStmt :: Parser String
 smallStmt = exprStmt
             <|> delStmt
             <|> passStmt
-            <|> flow_stmt
+            <|> flowStmt
             <|> globalStmt
             <|> nonlocalStmt
             <|> assertStmt
@@ -131,9 +131,8 @@ passStmt = pass ==> emitPassStmt
   where pass = ter "pass" 
 
 -- corresponds to `flow_stmt` in grammar
--- TODO: UPDATE THIS FUNCTION
-flow_stmt :: Parser String
-flow_stmt = breakStmt <|> continueStmt <|> returnStmt <|> raiseStmt
+flowStmt :: Parser String
+flowStmt = breakStmt <|> continueStmt <|> returnStmt <|> raiseStmt
 
 -- corresponds to `break_stmt` in grammar
 breakStmt :: Parser String
@@ -146,21 +145,38 @@ continueStmt = continue ==> emitContinueStmt
   where continue = ter "continue"
 
 -- corresponds to `return_stmt` in grammar
--- TODO: REFACTOR THE MIDDLE PART OF THE RULE BELOW
 returnStmt :: Parser String
-returnStmt = return <~> (eps "" <|> testlist) ==> emitReturnStmt
+returnStmt = return <~> returnExpr ==> emitReturnStmt
   where return = ter "return"
 
+-- whatever comes after `return`, eg `return "cows"`
+returnExpr :: Parser String
+returnExpr = none
+             <|> exp
+  where none = eps ""
+        exp  = testlist
+
 -- corresponds to `raise_stmt` in grammar
--- TODO: REFACTOR THIS WHOLE FUNCTION
 raiseStmt :: Parser String
-raiseStmt =     raise
-            <~> (eps "" <|> (test <~>
-                             (eps "" <|> from <~> test ==> (\(_,t) -> t))
-                              ==> (\(t,f)-> join " " [t,f]))) 
-                 ==> (\(s1,s2) -> join " " [s1,s2])
-  where raise = ter "raise"
-        from  = ter "from"
+raiseStmt = raise <~> exceptionTypesAndVars ==> emitRaiseStmt
+  where raise                 = ter "raise"
+        exceptionTypesAndVars = raiseClause
+
+-- matches whatever comes after `raise`, eg `raise ValueError("too many cows")`
+-- `raise` with no args re-raises an exception in the except suite.
+raiseClause :: Parser String
+raiseClause = reRaiseException
+              <|> raiseNewException
+  where reRaiseException  = eps ""
+        raiseNewException = test <~> raiseFrom ==> emitRaiseNewException
+
+-- eg, `raise ValueError from msg`
+raiseFrom :: Parser String
+raiseFrom = fromNowhere
+            <|> from <~> test ==> emitFromStmt
+  where fromNowhere  = eps ""
+        from         = ter "from"
+        
 
 -- corresponds to `global_stmt` in grammar
 globalStmt :: Parser String
@@ -413,6 +429,24 @@ emitExceptClause (_,bl) = joinStrs [except, bl, footer]
 emitSuite :: (String,(String,(String,String))) -> String
 emitSuite (_, (_, (stm, _))) = joinStrs [suitek, stm]
   where suitek = "suite "
+
+emitStmts :: (String,String) -> String
+emitStmts (st1, st2) = join " " [st1,st2]
+
+emitExceptType :: (String,String) -> String
+emitExceptType (tst, exps) = join " " [tst, exps]
+
+emitExceptVars :: (String,String) -> String
+emitExceptVars (_, v) = v
+
+emitRaiseStmt :: (String,String) -> String
+emitRaiseStmt (s1, s2) = join " " [s1, s2]
+
+emitRaiseNewException :: (String,String) -> String
+emitRaiseNewException (tp, frm) = join " " [tp, frm]
+
+emitFromStmt :: (String,String) -> String
+emitFromStmt (_, fr) = fr
 
 
 joinStrs :: [String] -> String
