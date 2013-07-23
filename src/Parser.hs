@@ -203,7 +203,8 @@ assertStmt = assert <~> test <~> zeroPlusTests ==> emitAssertStmt
   where assert = ter "assert"
 
 zeroPlusTests :: Parser String
-zeroPlusTests = noMoreTests <|> (comma <~> test) ==> emitRestTests
+zeroPlusTests = noMoreTests
+                <|> comma <~> test ==> emitRestTests
   where noMoreTests = eps ""
         comma       = ter ","
 
@@ -224,9 +225,10 @@ ifStmt = ifKeyword <~> test <~> colon <~> block <~> elseBlock ==> emitIfStmt
         elseBlock = zeroOrMoreElifs <~> elseClause
 
 elseClause :: Parser String
-elseClause = eps ""
+elseClause = noElseClause
              <|> elseKeyword <~> colon <~> block ==> emitElseClause
-  where elseKeyword = ter "else"
+  where noElseClause = eps ""
+        elseKeyword = ter "else"
         colon       = ter ":"
         block       = suite
 
