@@ -218,11 +218,11 @@ compoundStmt = ifStmt
 
 -- corresponds to `if_stmt` in grammar
 ifStmt :: Parser String
-ifStmt = ifKeyword <~> test <~> colon <~> block <~> elseBlock ==> emitIfStmt
+ifStmt = ifKeyword <~> test <~> colon <~> block <~> otherwise ==> emitIfStmt
   where ifKeyword = ter "if"
         colon     = ter ":"
         block     = suite
-        elseBlock = zeroOrMoreElifs <~> elseClause
+        otherwise = zeroOrMoreElifs <~> elseClause
 
 elseClause :: Parser String
 elseClause = noElseClause
