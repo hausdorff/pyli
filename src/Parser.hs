@@ -295,9 +295,56 @@ finallyCatchBlock :: Parser String
 finallyCatchBlock = noFinallyBlock
                     <|> finally <~> colon <~> block ==> emitFinallyCatchBlock
   where noFinallyBlock = eps ""
-        finally = ter "finally"
-        colon   = ter ":"
-        block   = suite
+        finally        = ter "finally"
+        colon          = ter ":"
+        block          = suite
+
+catchAndFinallyBlocks :: Parser String
+catchAndFinallyBlocks = exceptClause <~> colon <~> block <~> zeroPlusExcepts
+                        <~> elseBlock <~> finallyBlock ==> emitExceptElseFinally
+  where -- no extra excepts
+        colon        = ter ":"
+        block        = suite
+        elseBlock    = exceptElseClause ==> emitFailIfNotParsed
+        finallyBlock = finallyCatchBlock ==> emitFailIfNotParsed
+
+exceptElseClause :: Parser String
+exceptElseClause = noElseClause
+                   <|> elseKeyword <~> colon <~> block ==> emitExceptElseClause
+  where noElseClause = eps ""
+        elseKeyword  = ter "else"
+        colon        = ter ":"
+        block        = suite
+
+zeroPlusExcepts :: Parser String
+zeroPlusExcepts = noMoreExcepts
+                  <|> exceptClause <~> colon <~> block <~> zeroPlusExcepts
+                  ==> emitExceptClauses
+  where noMoreExcepts = eps ""
+        colon         = ter ":"
+        block         = suite
+
+-- corresponds to `except_clause` in grammar
+exceptClause :: Parser String
+exceptClause = except <~> exceptType ==> emitExceptClause
+  where except = ter "except"
+
+-- matches what sort of exception we're catching, eg, in `except ValueError:`,
+-- we'd matech `ValueError`.
+exceptType :: Parser String
+exceptType = catchAllExceptions
+             <|> catchSpecificExceptions ==> emitExceptType
+  where catchAllExceptions      = eps ""  -- `except:` will catch all excptns
+        catchSpecificExceptions = test <~> exceptVars
+
+-- matches vars in exception declaration, eg, in `except ValueError as e:` we
+-- we would match `as e`
+exceptVars :: Parser String
+exceptVars = noVars
+             <|> as <~> id ==> emitExceptVars
+  where noVars = eps ""
+        as     = ter "as"
+        id     = ter "ID"
 
 
 
@@ -504,6 +551,16 @@ emitExceptElseClause (_, (_, block)) = "(" ++ block ++ ")"
 
 emitFinallyCatchBlock :: (String,(String,String)) -> String
 emitFinallyCatchBlock (_, (_, block)) = "(" ++ block ++ ")"
+
+emitExceptElseFinally :: (String,(String,(String,(String,(String,String))))) ->
+                         String
+emitExceptElseFinally (except, (_, (block, ([], (elseBlock, finally))))) =
+  joinStrs [exceptBlock, elseBlock, " ", finally]
+  where exceptBlock = "((" ++ except ++ " (" ++ block ++ "))) "
+emitExceptElseFinally (except, (_, (block, (moreExcepts, (elseBlock,
+                                                          finally))))) =
+  joinStrs [exceptBlock, moreExcepts, ") ", elseBlock, " ", finally]
+  where exceptBlock = "((" ++ except ++ " (" ++ block ++ ")) "
 
 
 
