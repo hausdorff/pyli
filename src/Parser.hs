@@ -389,6 +389,16 @@ zeroPlusOrs = noMoreTests
   where noMoreTests = eps ""
         orKeyword   = ter "or"
 
+-- corresponds to `and_test` in grammar
+andTest:: Parser String
+andTest = notTest <~> zeroPlusNots ==> emitAndTest
+
+zeroPlusNots :: Parser String
+zeroPlusNots = noMoreNots
+               <|> andKeyword <~> notTest <~> zeroPlusNots ==> emitZeroPlusNots
+  where noMoreNots = eps ""
+        andKeyword = ter "and"
+
 
 
 -- EMISSION FUNCTIONS
@@ -621,6 +631,17 @@ emitOrTest (andTestExp, orExps) = case orExps of
   where header = "(or "
         body   = join " " [andTestExp, orExps]
         footer = ")"
+
+emitAndTest :: (String,String) -> String
+emitAndTest (notTestExp, restOfNotTests) = case restOfNotTests of
+  [] -> notTestExp
+  _  -> joinStrs [header, notTestExp, " ", restOfNotTests, footer]
+  where header = "(and "
+        footer = ")"
+
+emitZeroPlusNots :: (String,(String,String)) -> String
+emitZeroPlusNots (_, (notTestExp, restOfNots)) = join " " [notTestExp,restOfNots]
+
 
 
 
