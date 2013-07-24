@@ -436,6 +436,14 @@ comparisonOperator = ter "<"
                      <|> ter "<>"
                      <|> ter "!="
 
+-- corresponds to `star_expr` in grammar
+-- matches optional star before the expression, eg `myfunc(*cows)`
+starExpr :: Parser String
+starExpr = maybeHasStar <~> expr ==> emitStarExpr
+  where star         = ter "*"
+        noStar       = eps ""
+        maybeHasStar = noStar <|> star
+
 
 
 -- EMISSION FUNCTIONS
