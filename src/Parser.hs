@@ -278,11 +278,27 @@ forElseClause = noElseClause
 -- corresponds to `try_stmt` in grammar
 tryStmt :: Parser String
 tryStmt = try <~> colon <~> block <~> exceptionHandlers ==> emitTryStmt
-  where try   = ter "try"
-        colon = ter ":"
-        block = suite
+  where try               = ter "try"
+        colon             = ter ":"
+        block             = suite
         onlyAFinallyBlock = finallyTryBlock
         exceptionHandlers = catchAndFinallyBlocks <|> onlyAFinallyBlock
+
+-- used to emit finally block occurring right after a try block
+finallyTryBlock :: Parser String
+finallyTryBlock = finally <~> colon <~> block ==> emitFinallyTryBlock
+  where finally = ter "finally"
+        colon   = ter ":"
+        block   = suite
+
+finallyCatchBlock :: Parser String
+finallyCatchBlock = noFinallyBlock
+                    <|> finally <~> colon <~> block ==> emitFinallyCatchBlock
+  where noFinallyBlock = eps ""
+        finally = ter "finally"
+        colon   = ter ":"
+        block   = suite
+
 
 
 -- EMISSION FUNCTIONS
@@ -485,6 +501,9 @@ emitFailIfNotParsed parsed = case parsed of
 
 emitExceptElseClause :: (String,(String,String)) -> String
 emitExceptElseClause (_, (_, block)) = "(" ++ block ++ ")"
+
+emitFinallyCatchBlock :: (String,(String,String)) -> String
+emitFinallyCatchBlock (_, (_, block)) = "(" ++ block ++ ")"
 
 
 
