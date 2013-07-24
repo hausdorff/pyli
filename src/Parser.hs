@@ -399,6 +399,12 @@ zeroPlusNots = noMoreNots
   where noMoreNots = eps ""
         andKeyword = ter "and"
 
+-- corresponds to `not_test` in grammar
+notTest :: Parser String
+notTest = notKeyword <~> notTest ==> emitNotTest
+          <|> comparison
+  where notKeyword = ter "not"
+
 
 
 -- EMISSION FUNCTIONS
@@ -641,6 +647,11 @@ emitAndTest (notTestExp, restOfNotTests) = case restOfNotTests of
 
 emitZeroPlusNots :: (String,(String,String)) -> String
 emitZeroPlusNots (_, (notTestExp, restOfNots)) = join " " [notTestExp,restOfNots]
+
+emitNotTest :: (String,String) -> String
+emitNotTest (_, notTestExp) = joinStrs [header, notTestExp, footer]
+  where header = "(not "
+        footer = ")"
 
 
 
