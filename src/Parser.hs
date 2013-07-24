@@ -379,6 +379,16 @@ lambdef = lambda <~> zeroOrMoreParams <~> colon <~> body ==> emitLambdef
         colon            = ter ":"
         body             = test
 
+-- corresponds to `or_test` in grammar
+orTest :: Parser String
+orTest = andTest <~> zeroPlusOrs ==> emitOrTest
+
+zeroPlusOrs :: Parser String
+zeroPlusOrs = noMoreTests
+              <|> orKeyword <~> andTest <~> zeroPlusOrs ==> emitZeroPlusOrs
+  where noMoreTests = eps ""
+        orKeyword   = ter "or"
+
 
 
 -- EMISSION FUNCTIONS
@@ -600,6 +610,17 @@ emitTest (ortest1, (_, (ortest2, (_, testExp)))) =
   join " " [header, ortest1, ortest2, testExp, footer]
   where header = "(expr (if "
         footer = "))"
+
+emitZeroPlusOrs :: (String,(String,String)) -> String
+emitZeroPlusOrs (_, (andTestExp, restOfOrs)) = join " " [andTestExp, restOfOrs]
+
+emitOrTest :: (String,String) -> String
+emitOrTest (andTestExp, orExps) = case orExps of
+  [] -> andTestExp
+  _  -> joinStrs [header, body, footer]
+  where header = "(or "
+        body   = join " " [andTestExp, orExps]
+        footer = ")"
 
 
 
