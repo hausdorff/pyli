@@ -4,7 +4,7 @@
 -- grammar. Nearly everything also appears in the order it does in the grammar.
 module Parser (parseFile) where
 
-import Prelude hiding (break, exp, id, lines, otherwise, return)
+import Prelude hiding (break, exp, id, lines, not, otherwise, return)
 import Data.String.Utils (join)
 import Data.Set (Set)
 import Text.Derp
@@ -405,6 +405,37 @@ notTest = notKeyword <~> notTest ==> emitNotTest
           <|> comparison
   where notKeyword = ter "not"
 
+-- corresponds to `comparison` in grammar
+comparison :: Parser String
+comparison = starExpr <~> zeroPlusComps ==> emitComparison
+
+zeroPlusComps :: Parser String
+zeroPlusComps = noMoreComps
+                <|> comparisonType <~> starExpr <~> zeroPlusComps
+                ==> emitZeroPlusComps
+  where noMoreComps = eps ""
+
+comparisonType :: Parser String
+comparisonType = comparisonOperator ==> emitComparisonOperator
+                <|> inKeyword
+                <|> is
+                <|> (not <~> inKeyword ==> emitNotIn)
+                <|> (is <~> not ==> emitIsNot)
+  where inKeyword   = ter "in"
+        not         = ter "not"
+        is          = ter "is"
+        emitNotIn _ = "not-in"
+        emitIsNot _ = "is-not"
+
+comparisonOperator :: Parser String
+comparisonOperator = ter "<"
+                     <|> ter ">"
+                     <|> ter "=="
+                     <|> ter ">="
+                     <|> ter "<="
+                     <|> ter "<>"
+                     <|> ter "!="
+
 
 
 -- EMISSION FUNCTIONS
@@ -652,6 +683,19 @@ emitNotTest :: (String,String) -> String
 emitNotTest (_, notTestExp) = joinStrs [header, notTestExp, footer]
   where header = "(not "
         footer = ")"
+
+emitComparison :: (String,String) -> String
+emitComparison (starExp, restOfComps) = case restOfComps of
+  [] -> starExp
+  _  -> joinStrs [header, starExp, " ", restOfComps, footer]
+  where header = "(comparison "
+        footer = ")"
+
+emitZeroPlusComps :: (String,(String,String)) -> String
+emitZeroPlusComps (cop,(e,r)) = join " " [("(" ++ cop ++ " " ++ e ++ ")"),r]
+
+emitComparisonOperator :: String -> String
+emitComparisonOperator x = joinStrs ["\"", x, "\""]
 
 
 
