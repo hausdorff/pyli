@@ -362,6 +362,15 @@ zeroPlusStmts = noMoreStmts
                 <|> stmt <~> zeroPlusStmts ==> emitStmts
   where noMoreStmts = eps ""
 
+-- corresponds to `test` in grammar
+-- generates all possible conditionals... I think
+test :: Parser String
+test = orTest
+       <|> orTest <~> ifKeyword <~> orTest <~> elseKeyword <~> test ==> emitTest
+       <|> lambdef
+  where ifKeyword   = ter "if"
+        elseKeyword = ter "else"
+
 
 
 -- EMISSION FUNCTIONS
@@ -577,6 +586,12 @@ emitExceptElseFinally (except, (_, (block, (moreExcepts, (elseBlock,
                                                           finally))))) =
   joinStrs [exceptBlock, moreExcepts, ") ", elseBlock, " ", finally]
   where exceptBlock = "((" ++ except ++ " (" ++ block ++ ")) "
+
+emitTest :: (String,(String,(String,(String,String)))) -> String
+emitTest (ortest1, (_, (ortest2, (_, testExp)))) =
+  join " " [header, ortest1, ortest2, testExp, footer]
+  where header = "(expr (if "
+        footer = "))"
 
 
 
