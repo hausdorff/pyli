@@ -4,7 +4,7 @@
 -- grammar. Nearly everything also appears in the order it does in the grammar.
 module Parser (parseFile) where
 
-import Prelude hiding (break, exp, id, lines, return)
+import Prelude hiding (break, exp, id, lines, otherwise, return)
 import Data.String.Utils (join)
 import Data.Set (Set)
 import Text.Derp
@@ -122,7 +122,7 @@ augassign = ter "+="
 
 -- corresponds to `del_stmt` in grammar
 delStmt :: Parser String
-delStmt = del <~> star_expr ==> emitDelStmt
+delStmt = del <~> starExpr ==> emitDelStmt
   where del = ter "del"
 
 -- corresponds to `pass_stmt` in grammar
@@ -275,6 +275,14 @@ forElseClause = noElseClause
         colon        = ter ":"
         block        = suite
 
+-- corresponds to `try_stmt` in grammar
+tryStmt :: Parser String
+tryStmt = try <~> colon <~> block <~> exceptionHandlers ==> emitTryStmt
+  where try   = ter "try"
+        colon = ter ":"
+        block = suite
+        onlyAFinallyBlock = finallyTryBlock
+        exceptionHandlers = catchAndFinallyBlocks <|> onlyAFinallyBlock
 
 
 -- EMISSION FUNCTIONS
@@ -449,6 +457,36 @@ emitRaiseNewException (tp, frm) = join " " [tp, frm]
 
 emitFromStmt :: (String,String) -> String
 emitFromStmt (_, fr) = fr
+
+emitLambdef :: (String,(String,(String,String))) -> String
+emitLambdef (_, (params, (_, body))) = joinStrs [header, middle, footer]
+  where header = "(expr (lambda ("
+        middle = params ++ ") (" ++ body
+        footer = ")))"
+
+emitStarExpr :: (String,String) -> String
+emitStarExpr (star, exp) = case star of
+  [] -> exp
+  _  -> "(star " ++ exp ++ ")"
+
+emitArglist :: (String,(String,String)) -> String
+emitArglist (arg, (restOfArgs, _)) = join " " [arg, restOfArgs]
+
+emitZeroPlusArgs :: (String,(String,String)) -> String
+emitZeroPlusArgs (_,(arg, restOfArgs)) = join " " [arg, restOfArgs]
+
+emitFinallyTryBlock :: (String,(String,String)) -> String
+emitFinallyTryBlock (_, (_, block)) = "() #f (" ++ block ++ ")"
+
+emitFailIfNotParsed :: String -> String
+emitFailIfNotParsed parsed = case parsed of
+  [] -> "#f"
+  _  -> parsed
+
+emitExceptElseClause :: (String,(String,String)) -> String
+emitExceptElseClause (_, (_, block)) = "(" ++ block ++ ")"
+
+
 
 
 joinStrs :: [String] -> String
