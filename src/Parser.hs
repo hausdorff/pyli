@@ -371,6 +371,14 @@ test = orTest
   where ifKeyword   = ter "if"
         elseKeyword = ter "else"
 
+-- corresponds to `lambdef` in grammar
+lambdef :: Parser String
+lambdef = lambda <~> zeroOrMoreParams <~> colon <~> body ==> emitLambdef
+  where lambda           = ter "lambda"
+        zeroOrMoreParams = zeroPlusParams
+        colon            = ter ":"
+        body             = test
+
 
 
 -- EMISSION FUNCTIONS
