@@ -346,6 +346,22 @@ exceptVars = noVars
         as     = ter "as"
         id     = ter "ID"
 
+-- corresponds to `suite` in grammar
+suite :: Parser String
+suite = simpleStmt
+        <|> newline <~> indent <~> onePlusStmts <~> dedent ==> emitSuite
+  where newline = ter "NEWLINE"
+        indent  = ter "INDENT"
+        dedent  = ter "DEDENT"
+
+onePlusStmts :: Parser String
+onePlusStmts = stmt <~> zeroPlusStmts ==> emitStmts
+
+zeroPlusStmts :: Parser String
+zeroPlusStmts = noMoreStmts
+                <|> stmt <~> zeroPlusStmts ==> emitStmts
+  where noMoreStmts = eps ""
+
 
 
 -- EMISSION FUNCTIONS
