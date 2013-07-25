@@ -101,8 +101,8 @@ smallStmt = exprStmt
 -- TODO: REFACTOR THIS TO USE DIFFERENT FUNCTIONS AND STUFF
 exprStmt :: Parser String
 exprStmt = testlist <~> augassign <~> testlist ==> emitAugAssignStmt
-           <|> testlist <~> equals <~> tuple_or_test ==> emitAssignStmt
-           <|> tuple_or_test ==> emitExprStmt
+           <|> testlist <~> equals <~> testOrTests ==> emitAssignStmt
+           <|> testOrTests ==> emitExprStmt
     where equals = ter "="
 
 -- corresponds to `augassign` in grammar
@@ -538,6 +538,53 @@ power = indexed <~> exponent ==> emitPower
         emitExponent = (\(_, fctr) -> fctr)
         exponent     = noPower <|> ((raisedTo <~> factor) ==> emitExponent)
 
+-- corresponds to `atom` in grammar
+atom :: Parser String
+atom = tuple
+       <|> list
+       <|> dict
+       <|> id        ==> emitId
+       <|> lit       ==> emitLit
+       <|> str       ==> emitStr
+       <|> dots      ==> emitDots
+       <|> noneType  ==> emitNoneType
+       <|> trueType  ==> emitTrueType
+       <|> falseType ==> emitFalseType
+  where id              = ter "ID"
+        lit             = ter "LIT"
+        dots            = ter "..."
+        noneType        = ter "None"
+        trueType        = ter "True"
+        falseType       = ter "False"
+        emitId        x = x
+        emitLit       x = x
+        emitStr       x = joinStrs ["\"", x, "\""]
+        emitDots      _ = ""
+        emitNoneType  _ = "None"
+        emitTrueType  _ = "True"
+        emitFalseType _ = "False"
+
+tuple :: Parser String
+tuple = lparen <~> optionalExps <~> rparen ==> emitTuple
+  where lparen       = ter "("
+        rparen       = ter ")"
+        none         = eps ""
+        optionalExps = (none <|> testOrTests)
+
+list :: Parser String
+list = lbracket <~> optionalExps <~> rbracket ==> emitList
+  where lbracket     = ter "["
+        rbracket     = ter "]"
+        none         = eps ""
+        optionalExps = none <|> testlist
+
+dict :: Parser String
+dict = lbrace <~> optDictOrSetMaker <~> rbrace ==> emitDict
+  where lbrace            = ter "{"
+        rbrace            = ter "}"
+        none              = eps ""
+        optDictOrSetMaker = none <|> dictorsetmaker
+
 
 
 -- EMISSION FUNCTIONS
@@ -891,6 +938,39 @@ emitPower (coef, pwr) = case pwr of
   where header = "(power "
         body   = coef ++ " " ++ pwr
         footer = ")"
+
+emitStr :: (String,String) -> String
+emitStr (string, restOfStrings) = string ++ restOfStrings
+
+emitTrailerTuple :: (String,(String,String)) -> String
+emitTrailerTuple (_, (optArglist, _)) = joinStrs [header, optArglist, footer]
+  where header = "(called "
+        footer = ")"
+
+emitSubscript :: (String,(String,String)) -> String
+emitSubscript (_, (listContents, _)) = "(subscript " ++ listContents ++ ")"
+
+emitMethodCall :: (String,String) -> String
+emitMethodCall (_, id) = "(dot " ++ id ++ ")"
+
+emitTestOrTests :: (String,(String,String)) -> String
+emitTestOrTests (exp, (restOfExps, _)) = case restOfExps of
+  [] -> exp
+  _  -> joinStrs [header, body, footer]
+  where header = "(tuple "
+        body   = exp ++ " " ++ restOfExps
+        footer = ")"
+
+emitTuple :: (String,(String,String)) -> String
+emitTuple (_,(tupleElems,_)) = tupleElems
+
+emitList :: (String,(String,String)) -> String
+emitList (_,(listElems,_)) = "(list " ++ listElems ++ ")"
+
+emitDict :: (String,(String,String)) -> String
+emitDict (_, (dictionary, _)) = case (null dictionary) of
+  True  -> "(dict)"
+  False -> dictionary
 
 
 
