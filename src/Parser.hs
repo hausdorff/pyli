@@ -4,7 +4,7 @@
 -- grammar. Nearly everything also appears in the order it does in the grammar.
 module Parser (parseFile) where
 
-import Prelude hiding (break, exp, id, lines, not, otherwise, return)
+import Prelude hiding (break, exp, exponent, id, lines, not, otherwise, return)
 import Data.String.Utils (join)
 import Data.Set (Set)
 import Text.Derp
@@ -530,6 +530,14 @@ factor = power
 indexed:: Parser String
 indexed = atom <~> zeroPlusTrailers ==> emitIndexed
 
+-- corresponds to `power` in grammar
+power :: Parser String
+power = indexed <~> exponent ==> emitPower
+  where noPower      = eps ""
+        raisedTo     = ter "**"
+        emitExponent = (\(_, fctr) -> fctr)
+        exponent     = noPower <|> ((raisedTo <~> factor) ==> emitExponent)
+
 
 
 -- EMISSION FUNCTIONS
@@ -875,6 +883,14 @@ emitIndexed (atomExp, restOfExps) = case restOfExps of
 
 emitZeroPlusTrailers :: (String,String) -> String
 emitZeroPlusTrailers (trlr, restOfTrailers) = join " " [trlr, restOfTrailers]
+
+emitPower :: (String,String) -> String
+emitPower (coef, pwr) = case pwr of
+  [] -> coef
+  _  -> joinStrs [header, body, footer]
+  where header = "(power "
+        body   = coef ++ " " ++ pwr
+        footer = ")"
 
 
 
