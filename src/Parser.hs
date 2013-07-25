@@ -595,6 +595,27 @@ zeroPlusStrs = noMoreStrs
   where noMoreStrs = eps ""
         string     = ter "STRING"
 
+-- corresponds to `trailer` in grammar
+trailer :: Parser String
+trailer = leftParen <~> optionalArglist <~> rightParen ==> emitTrailerTuple
+          <|> subscript ==> emitSubscript
+          <|> methodCall ==> emitMethodCall
+  where leftParen       = ter "("
+        rightParen      = ter ")"
+        leftBracket     = ter "["
+        rightBracket    = ter "]"
+        noArglist       = eps ""
+        optionalArglist = noArglist <|> arglist
+        subscript       = leftBracket <~> testOrTests <~> rightBracket
+        methodCall      = period <~> id
+        period          = ter "."
+        id              = ter "ID"
+
+zeroPlusTrailers:: Parser String
+zeroPlusTrailers = noMoreTrailers
+                   <|> trailer <~> zeroPlusTrailers ==> emitZeroPlusTrailers
+  where noMoreTrailers = eps ""
+
 
 
 -- EMISSION FUNCTIONS
