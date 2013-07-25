@@ -631,6 +631,24 @@ testOrTests = exp <~> zeroPlusExps <~> optionalComma ==> emitTestOrTests
         comma         = ter ","
         optionalComma = noComma <|> comma
 
+-- corresponds to `dictorsetmaker` in grammar
+dictorsetmaker :: Parser String
+dictorsetmaker = dictMaker <|> setMaker
+
+dictMaker :: Parser String
+dictMaker = test <~> colon <~> test <~> testTuple' <~> optionalComma
+            ==> emitDictMaker
+  where colon = ter ":"
+        nothing = eps ""
+        comma = ter ","
+        optionalComma = nothing <|> comma
+
+setMaker :: Parser String
+setMaker = test <~> testTuple <~> optionalComma ==> emitSetMaker
+  where nothing       = eps ""
+        comma         = ter ","
+        optionalComma = nothing <|> comma
+
 
 
 -- EMISSION FUNCTIONS
@@ -1023,6 +1041,24 @@ emitTestTuple (_, (testExp, restOfTests)) = join " " [testExp, restOfTests]
 
 emitManyTests :: (String,(String,String)) -> String
 emitManyTests (test1, (restOfTests, _)) = join " " [test1, restOfTests]
+
+emitTestTuple' :: (String,(String,(String,(String,String)))) -> String
+emitTestTuple' (_, (test1, (_, (test2, restOfTests)))) =
+  join " " [header, body, footer, restOfTests]
+  where header = "("
+        body   = test1 ++ " " ++ test2
+        footer = ")"
+
+emitDictMaker :: (String,(String,(String,(String,String)))) -> String
+emitDictMaker (key, (_, (val, (restOfDict, _)))) = joinStrs [body, footer]
+  where dictLit = "(dict (" ++ key ++ " " ++ val ++ ")"
+        body = join " " [dictLit, restOfDict]
+        footer = ")"
+
+emitSetMaker :: (String,(String,String)) -> String
+emitSetMaker (eleme, (restOfElems, (_))) = joinStrs [body, footer]
+  where body = join " " [("(set " ++ eleme), restOfElems]
+        footer = ")"
 
 
 
