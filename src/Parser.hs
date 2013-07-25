@@ -518,6 +518,15 @@ zeroPlusMults = noMoreMults
         intdiv      = ter "//"
         operator    = mult <|> divis <|> modu <|> intdiv
 
+-- corresponds to `factor` in grammar
+factor :: Parser String
+factor = power
+         <|> operatorChoice <~> factor ==> emitFactor
+  where plus           = ter "+"
+        minus          = ter "-"
+        bitNot         = ter "~"
+        operatorChoice = plus <|> minus <|> bitNot
+
 
 
 -- EMISSION FUNCTIONS
@@ -845,6 +854,12 @@ emitZeroPlusMults (operator, (operand, restOfOps)) =
   join " " [header, body, footer, restOfOps]
   where header = "("
         body = "\"" ++ operator ++ "\" " ++ operand
+        footer = ")"
+
+emitFactor :: (String,String) -> String
+emitFactor (operatorChoice, operand) = joinStrs [header, body, footer]
+  where header = "("
+        body = "\"" ++ operatorChoice ++ "\" " ++ operand
         footer = ")"
 
 
