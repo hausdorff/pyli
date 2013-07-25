@@ -481,7 +481,7 @@ zeroPlusShifts = noMoreShifts
 
 -- corresponds to `arith_expr` in grammar
 arithExpr :: Parser String
-arithExpr = term <~> addRep ==> emitArithExpr
+arithExpr = term <~> zeroPlusAdds ==> emitArithExpr
 
 emitArithExpr :: (String,String) -> String
 emitArithExpr (termExp, restOfAdds) = case restOfAdds of
@@ -497,6 +497,12 @@ zeroPlusArithExprs = noMoreArithExprs
                      ==> emitZeroPlusArithExprs
   where noMoreArithExprs = eps ""
         leftOrRightShift = ter "<<" <|> ter ">>"
+
+zeroPlusAdds :: Parser String
+zeroPlusAdds = noMoreAdds
+               <|> minusOrPlus <~> term <~> zeroPlusAdds ==> emitZeroPlusAdds
+  where noMoreAdds = eps ""
+        minusOrPlus = ter "+" <|> ter "-"
 
 
 
@@ -803,6 +809,13 @@ emitZeroPlusArithExprs (shiftOperator, (arithExp, restOfArithExps)) =
   join " " [header, body, footer, restOfArithExps]
   where header = "("
         body   = "\"" ++ shiftOperator ++ "\" " ++ arithExp
+        footer = ")"
+
+emitZeroPlusAdds :: (String,(String,String)) -> String
+emitZeroPlusAdds (oprator, (exp, restOfAdds)) = join " " [header, body, footer,
+                                                          restOfAdds]
+  where header = "("
+        body   = "\"" ++ oprator ++ "\"" ++ exp
         footer = ")"
 
 
