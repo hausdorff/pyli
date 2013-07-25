@@ -452,19 +452,21 @@ expr = xorExpr <~> zeroPlusXors ==> emitExpr
 xorExpr :: Parser String
 xorExpr = andExpr <~> zeroPlusAnds ==> emitXorExpr
 
-emitXorExpr :: (String,String) -> String
-emitXorExpr (andExp, restOfAnds) = case restOfAnds of
-  [] -> andExp
-  _  -> joinStrs [header, andExp, " ", restOfAnds, footer]
-  where header = "(bitwise-xor "
-        footer = ")"
-
 zeroPlusXors :: Parser String
 zeroPlusXors = noMoreXors
                <|> logicalOr <~> xorExpr <~> zeroPlusXors ==> emitZeroPlusXors
   where noMoreXors = eps ""
         logicalOr  = ter "|"
 
+-- corresponds to `and_expr` in grammar
+andExpr :: Parser String
+andExpr = shiftExpr <~> zeroPlusShifts ==> emitAndExpr
+
+zeroPlusAnds :: Parser String
+zeroPlusAnds = noMoreAnds
+               <|> xor <~> andExpr <~> zeroPlusAnds ==> emitZeroPlusAnds
+  where noMoreAnds = eps ""
+        xor        = ter "^"
 
 
 -- EMISSION FUNCTIONS
@@ -734,6 +736,26 @@ emitExpr (xorExp, restXors) = case restXors of
   [] -> xorExp
   _  -> joinStrs [header, xorExp, " ", restXors, footer]
   where header = "(bitwise-or "
+        footer = ")"
+
+emitXorExpr :: (String,String) -> String
+emitXorExpr (andExp, restOfAnds) = case restOfAnds of
+  [] -> andExp
+  _  -> joinStrs [header, andExp, " ", restOfAnds, footer]
+  where header = "(bitwise-xor "
+        footer = ")"
+
+emitZeroPlusAnds :: (String,(String,String)) -> String
+emitZeroPlusAnds (_, (andExp, restOfAnds)) = join " " [andExp, restOfAnds]
+
+emitZeroPlusShifts :: (String,(String,String)) -> String
+emitZeroPlusShifts (_,(shiftExp, restOfShifts)) =
+  join " " [shiftExp, restOfShifts]
+
+emitAndExpr (shiftExp, restOfShiftExps) = case restOfShiftExps of
+  [] -> shiftExp
+  _  -> joinStrs [header, shiftExp, " ", restOfShiftExps, footer]
+  where header = "(bitwise-and "
         footer = ")"
 
 
