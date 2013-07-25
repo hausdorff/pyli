@@ -501,12 +501,22 @@ zeroPlusArithExprs = noMoreArithExprs
 zeroPlusAdds :: Parser String
 zeroPlusAdds = noMoreAdds
                <|> minusOrPlus <~> term <~> zeroPlusAdds ==> emitZeroPlusAdds
-  where noMoreAdds = eps ""
+  where noMoreAdds  = eps ""
         minusOrPlus = ter "+" <|> ter "-"
 
 -- corresponds to `term` in grammar
 term :: Parser String
-term = factor <~> multRep ==> emitTerm
+term = factor <~> zeroPlusMults ==> emitTerm
+
+zeroPlusMults :: Parser String
+zeroPlusMults = noMoreMults
+                <|> operator <~> factor <~> zeroPlusMults ==> emitZeroPlusMults
+  where noMoreMults = eps ""
+        mult        = ter "*"
+        divis       = ter "/"
+        modu        = ter "%"
+        intdiv      = ter "//"
+        operator    = mult <|> divis <|> modu <|> intdiv
 
 
 
@@ -828,6 +838,13 @@ emitTerm (fctr, restOfMults) = case restOfMults of
   _  -> joinStrs [header, body, footer]
   where header = "(term "
         body   = join " " [fctr, restOfMults]
+        footer = ")"
+
+emitZeroPlusMults :: (String,(String,String)) -> String
+emitZeroPlusMults (operator, (operand, restOfOps)) =
+  join " " [header, body, footer, restOfOps]
+  where header = "("
+        body = "\"" ++ operator ++ "\" " ++ operand
         footer = ")"
 
 
