@@ -622,6 +622,15 @@ manyTests = test <~> testTuple <~> optionalComma ==> emitManyTests
         comma         = ter ","
         optionalComma = nothing <|> comma
 
+-- a test exp can either be just one expr or a tuple eg `ex1, ex2 = blah()`
+testOrTests :: Parser String
+testOrTests = exp <~> zeroPlusExps <~> optionalComma ==> emitTestOrTests
+  where exp           = test
+        zeroPlusExps  = zeroPlusArgs
+        noComma       = eps ""
+        comma         = ter ","
+        optionalComma = noComma <|> comma
+
 
 
 -- EMISSION FUNCTIONS
