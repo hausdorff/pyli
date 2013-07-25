@@ -100,8 +100,8 @@ smallStmt = exprStmt
 
 -- TODO: REFACTOR THIS TO USE DIFFERENT FUNCTIONS AND STUFF
 exprStmt :: Parser String
-exprStmt = testlist <~> augassign <~> testlist ==> emitAugAssignStmt
-           <|> testlist <~> equals <~> testOrTests ==> emitAssignStmt
+exprStmt = manyTests <~> augassign <~> manyTests ==> emitAugAssignStmt
+           <|> manyTests <~> equals <~> testOrTests ==> emitAssignStmt
            <|> testOrTests ==> emitExprStmt
     where equals = ter "="
 
@@ -154,7 +154,7 @@ returnExpr :: Parser String
 returnExpr = none
              <|> exp
   where none = eps ""
-        exp  = testlist
+        exp  = manyTests
 
 -- corresponds to `raise_stmt` in grammar
 raiseStmt :: Parser String
@@ -545,7 +545,7 @@ atom = tuple
        <|> dict
        <|> id        ==> emitId
        <|> lit       ==> emitLit
-       <|> str       ==> emitStr
+       <|> str       ==> emitString
        <|> dots      ==> emitDots
        <|> noneType  ==> emitNoneType
        <|> trueType  ==> emitTrueType
@@ -558,7 +558,7 @@ atom = tuple
         falseType       = ter "False"
         emitId        x = x
         emitLit       x = x
-        emitStr       x = joinStrs ["\"", x, "\""]
+        emitString    x = joinStrs ["\"", x, "\""]
         emitDots      _ = ""
         emitNoneType  _ = "None"
         emitTrueType  _ = "True"
@@ -576,7 +576,7 @@ list = lbracket <~> optionalExps <~> rbracket ==> emitList
   where lbracket     = ter "["
         rbracket     = ter "]"
         none         = eps ""
-        optionalExps = none <|> testlist
+        optionalExps = none <|> manyTests
 
 dict :: Parser String
 dict = lbrace <~> optDictOrSetMaker <~> rbrace ==> emitDict
@@ -615,6 +615,12 @@ zeroPlusTrailers:: Parser String
 zeroPlusTrailers = noMoreTrailers
                    <|> trailer <~> zeroPlusTrailers ==> emitZeroPlusTrailers
   where noMoreTrailers = eps ""
+
+manyTests :: Parser String
+manyTests = test <~> testTuple <~> optionalComma ==> emitManyTests
+  where nothing       = eps ""
+        comma         = ter ","
+        optionalComma = nothing <|> comma
 
 
 
@@ -1002,6 +1008,12 @@ emitDict :: (String,(String,String)) -> String
 emitDict (_, (dictionary, _)) = case (null dictionary) of
   True  -> "(dict)"
   False -> dictionary
+
+emitTestTuple :: (String,(String,String)) -> String
+emitTestTuple (_, (testExp, restOfTests)) = join " " [testExp, restOfTests]
+
+emitManyTests :: (String,(String,String)) -> String
+emitManyTests (test1, (restOfTests, _)) = join " " [test1, restOfTests]
 
 
 
