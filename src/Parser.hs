@@ -663,6 +663,20 @@ testTuple' = nothing
         comma = ter ","
         colon = ter ":"
 
+-- corresponds to `arglist` in grammar
+arglist :: Parser String
+arglist = arg <~> zeroPlusArgs <~> optionalComma ==> emitArglist
+  where arg           = test
+        noComma       = eps ""
+        comma         = ter ","
+        optionalComma = noComma <|> comma
+
+zeroPlusArgs :: Parser String
+zeroPlusArgs = noMoreArgs
+               <|> comma <~> arg <~> zeroPlusArgs ==> emitZeroPlusArgs
+  where noMoreArgs = eps ""
+        comma      = ter ","
+        arg        = test
 
 
 -- EMISSION FUNCTIONS
