@@ -504,6 +504,10 @@ zeroPlusAdds = noMoreAdds
   where noMoreAdds = eps ""
         minusOrPlus = ter "+" <|> ter "-"
 
+-- corresponds to `term` in grammar
+term :: Parser String
+term = factor <~> multRep ==> emitTerm
+
 
 
 -- EMISSION FUNCTIONS
@@ -816,6 +820,14 @@ emitZeroPlusAdds (oprator, (exp, restOfAdds)) = join " " [header, body, footer,
                                                           restOfAdds]
   where header = "("
         body   = "\"" ++ oprator ++ "\"" ++ exp
+        footer = ")"
+
+emitTerm :: (String,String) -> String
+emitTerm (fctr, restOfMults) = case restOfMults of
+  [] -> fctr
+  _  -> joinStrs [header, body, footer]
+  where header = "(term "
+        body   = join " " [fctr, restOfMults]
         footer = ")"
 
 
