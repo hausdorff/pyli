@@ -527,6 +527,9 @@ factor = power
         bitNot         = ter "~"
         operatorChoice = plus <|> minus <|> bitNot
 
+indexed:: Parser String
+indexed = atom <~> zeroPlusTrailers ==> emitIndexed
+
 
 
 -- EMISSION FUNCTIONS
@@ -861,6 +864,17 @@ emitFactor (operatorChoice, operand) = joinStrs [header, body, footer]
   where header = "("
         body = "\"" ++ operatorChoice ++ "\" " ++ operand
         footer = ")"
+
+emitIndexed :: (String,String) -> String
+emitIndexed (atomExp, restOfExps) = case restOfExps of
+  [] -> atomExp
+  _  -> joinStrs [header, body, footer]
+  where header = "(indexed "
+        body   = join " " [atomExp, restOfExps]
+        footer = ")"
+
+emitZeroPlusTrailers :: (String,String) -> String
+emitZeroPlusTrailers (trlr, restOfTrailers) = join " " [trlr, restOfTrailers]
 
 
 
