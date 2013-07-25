@@ -649,6 +649,20 @@ setMaker = test <~> testTuple <~> optionalComma ==> emitSetMaker
         comma         = ter ","
         optionalComma = nothing <|> comma
 
+testTuple :: Parser String
+testTuple = noMoreTests
+            <|> comma <~> test <~> testTuple ==> emitTestTuple
+  where noMoreTests = eps ""
+        comma = ter ","
+
+testTuple' :: Parser String
+testTuple' = nothing
+             <|> comma <~> test <~> colon <~> test <~> testTuple'
+             ==> emitTestTuple'
+  where nothing = eps ""
+        comma = ter ","
+        colon = ter ":"
+
 
 
 -- EMISSION FUNCTIONS
