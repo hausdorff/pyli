@@ -585,6 +585,16 @@ dict = lbrace <~> optDictOrSetMaker <~> rbrace ==> emitDict
         none              = eps ""
         optDictOrSetMaker = none <|> dictorsetmaker
 
+str:: Parser String
+str = string <~> zeroPlusStrs ==> emitStr
+  where string = ter "STRING" 
+
+zeroPlusStrs :: Parser String
+zeroPlusStrs = noMoreStrs
+               <|> string <~> zeroPlusStrs ==> emitStr
+  where noMoreStrs = eps ""
+        string     = ter "STRING"
+
 
 
 -- EMISSION FUNCTIONS
