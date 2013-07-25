@@ -444,6 +444,27 @@ starExpr = maybeHasStar <~> expr ==> emitStarExpr
         noStar       = eps ""
         maybeHasStar = noStar <|> star
 
+-- corresponds to `expr` in grammar
+expr :: Parser String
+expr = xorExpr <~> zeroPlusXors ==> emitExpr
+
+-- corresponds to `xor_expr` in grammar
+xorExpr :: Parser String
+xorExpr = andExpr <~> zeroPlusAnds ==> emitXorExpr
+
+emitXorExpr :: (String,String) -> String
+emitXorExpr (andExp, restOfAnds) = case restOfAnds of
+  [] -> andExp
+  _  -> joinStrs [header, andExp, " ", restOfAnds, footer]
+  where header = "(bitwise-xor "
+        footer = ")"
+
+zeroPlusXors :: Parser String
+zeroPlusXors = noMoreXors
+               <|> logicalOr <~> xorExpr <~> zeroPlusXors ==> emitZeroPlusXors
+  where noMoreXors = eps ""
+        logicalOr  = ter "|"
+
 
 
 -- EMISSION FUNCTIONS
@@ -704,6 +725,16 @@ emitZeroPlusComps (cop,(e,r)) = join " " [("(" ++ cop ++ " " ++ e ++ ")"),r]
 
 emitComparisonOperator :: String -> String
 emitComparisonOperator x = joinStrs ["\"", x, "\""]
+
+emitZeroPlusXors :: (String,(String,String)) -> String
+emitZeroPlusXors (_, (xorExp, restXors)) = join " " [xorExp, restXors]
+
+emitExpr :: (String,String) -> String
+emitExpr (xorExp, restXors) = case restXors of
+  [] -> xorExp
+  _  -> joinStrs [header, xorExp, " ", restXors, footer]
+  where header = "(bitwise-or "
+        footer = ")"
 
 
 
