@@ -454,9 +454,9 @@ xorExpr = andExpr <~> zeroPlusAnds ==> emitXorExpr
 
 zeroPlusXors :: Parser String
 zeroPlusXors = noMoreXors
-               <|> logicalOr <~> xorExpr <~> zeroPlusXors ==> emitZeroPlusXors
+               <|> bitOr <~> xorExpr <~> zeroPlusXors ==> emitZeroPlusXors
   where noMoreXors = eps ""
-        logicalOr  = ter "|"
+        bitOr  = ter "|"
 
 -- corresponds to `and_expr` in grammar
 andExpr :: Parser String
