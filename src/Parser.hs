@@ -468,6 +468,37 @@ zeroPlusAnds = noMoreAnds
   where noMoreAnds = eps ""
         xor        = ter "^"
 
+-- corresponds to `shift_expr` in grammar
+shiftExpr :: Parser String
+shiftExpr = arithExpr <~> zeroPlusArithExprs ==> emitShiftExpr
+
+zeroPlusShifts :: Parser String
+zeroPlusShifts = noMoreShifts
+                 <|> bitAnd <~> shiftExpr <~> zeroPlusShifts
+                 ==> emitZeroPlusShifts
+  where noMoreShifts = eps ""
+        bitAnd       = ter "&"
+
+-- corresponds to `arith_expr` in grammar
+arithExpr :: Parser String
+arithExpr = term <~> addRep ==> emitArithExpr
+
+emitArithExpr :: (String,String) -> String
+emitArithExpr (termExp, restOfAdds) = case restOfAdds of
+  [] -> termExp
+  _  -> joinStrs [header, body, footer]
+  where header = "(arith "
+        body   = join " " [termExp, restOfAdds]
+        footer = ")"
+
+zeroPlusArithExprs :: Parser String
+zeroPlusArithExprs = noMoreArithExprs
+                     <|> leftOrRightShift <~> arithExpr <~> zeroPlusArithExprs
+                     ==> emitZeroPlusArithExprs
+  where noMoreArithExprs = eps ""
+        leftOrRightShift = ter "<<" <|> ter ">>"
+
+
 
 -- EMISSION FUNCTIONS
 -- Functions designed to take the output of a reduction from Derp lib,
@@ -752,10 +783,26 @@ emitZeroPlusShifts :: (String,(String,String)) -> String
 emitZeroPlusShifts (_,(shiftExp, restOfShifts)) =
   join " " [shiftExp, restOfShifts]
 
+emitAndExpr :: (String,String) -> String
 emitAndExpr (shiftExp, restOfShiftExps) = case restOfShiftExps of
   [] -> shiftExp
   _  -> joinStrs [header, shiftExp, " ", restOfShiftExps, footer]
   where header = "(bitwise-and "
+        footer = ")"
+
+emitShiftExpr :: (String,String) -> String
+emitShiftExpr (arithExp, restOfArithExps) = case restOfArithExps of
+  [] -> arithExp
+  _  -> joinStrs [header, body, footer]
+  where header = "(shift "
+        body   = join " " [arithExp, restOfArithExps]
+        footer = ")"
+
+emitZeroPlusArithExprs :: (String,(String,String)) -> String
+emitZeroPlusArithExprs (shiftOperator, (arithExp, restOfArithExps)) =
+  join " " [header, body, footer, restOfArithExps]
+  where header = "("
+        body   = "\"" ++ shiftOperator ++ "\" " ++ arithExp
         footer = ")"
 
 
