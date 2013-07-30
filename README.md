@@ -1,4 +1,4 @@
-pyli is a ~~lexer~~ compiler for Python 3. Currently you can put Python 3 source into it and it will output a lispy AST:
+pyli is a lexer and parser for (most of) Python 3. Currently you can put Python 3 source into it and it will output a lispy AST:
 
     cat stuff.py | make pyli
 
