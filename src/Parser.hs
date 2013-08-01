@@ -198,7 +198,7 @@ nonlocalStmt = nonlocal <~> id <~> zeroPlusIds ==> emitNonlocalStmt
         id       = ter "ID"
 
 -- corresponds to `assert_stmt` in grammar
-assertStmt:: Parser String
+assertStmt :: Parser String
 assertStmt = assert <~> test <~> zeroPlusTests ==> emitAssertStmt
   where assert = ter "assert"
 
@@ -390,7 +390,7 @@ zeroPlusOrs = noMoreTests
         orKeyword   = ter "or"
 
 -- corresponds to `and_test` in grammar
-andTest:: Parser String
+andTest :: Parser String
 andTest = notTest <~> zeroPlusNots ==> emitAndTest
 
 zeroPlusNots :: Parser String
@@ -527,7 +527,7 @@ factor = power
         bitNot         = ter "~"
         operatorChoice = plus <|> minus <|> bitNot
 
-indexed:: Parser String
+indexed :: Parser String
 indexed = atom <~> zeroPlusTrailers ==> emitIndexed
 
 -- corresponds to `power` in grammar
@@ -585,7 +585,7 @@ dict = lbrace <~> optDictOrSetMaker <~> rbrace ==> emitDict
         none              = eps ""
         optDictOrSetMaker = none <|> dictorsetmaker
 
-str:: Parser String
+str :: Parser String
 str = string <~> zeroPlusStrs ==> emitStr
   where string = ter "STRING" 
 
@@ -611,7 +611,7 @@ trailer = leftParen <~> optionalArglist <~> rightParen ==> emitTrailerTuple
         period          = ter "."
         id              = ter "ID"
 
-zeroPlusTrailers:: Parser String
+zeroPlusTrailers :: Parser String
 zeroPlusTrailers = noMoreTrailers
                    <|> trailer <~> zeroPlusTrailers ==> emitZeroPlusTrailers
   where noMoreTrailers = eps ""
