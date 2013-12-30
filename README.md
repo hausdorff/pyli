@@ -7,6 +7,7 @@ Compilers are still a bit of a black art. They need not be. Our goals in this pr
 
 To help people understand the codebase, I have written a fair amount of detail about different parts of the codebase as they exist now:
 
+|   |                                                                   |
 |:--|:-----------------------------------------------------------------:|
 | 1 | [The Parser](http://blog.nullspace.io/obvious-python-parser.html) |
 
